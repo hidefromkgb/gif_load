@@ -1,0 +1,4 @@
+# Ignore everything except the main header and its readme
+*
+!gif_load.h
+!README.md
