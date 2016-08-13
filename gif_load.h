@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 #ifndef GIF_MGET
-    #include <malloc.h>
+    #include <stdlib.h>
     #define GIF_MGET(m, s, c) m = realloc((c)? 0 : m, (c)? s : 0)
 #endif
 
