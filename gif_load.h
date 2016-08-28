@@ -1,11 +1,43 @@
 #ifndef GIF_LOAD_H
 #define GIF_LOAD_H
 
+/** gif_load: A slim, fast and header-only GIF loader written in C.
+    Original author: hidefromkgb (hidefromkgb@gmail.com)
+    _________________________________________________________________________
+
+    This is free and unencumbered software released into the public domain.
+
+    Anyone is free to copy, modify, publish, use, compile, sell, or
+    distribute this software, either in source code form or as a compiled
+    binary, for any purpose, commercial or non-commercial, and by any means.
+
+    In jurisdictions that recognize copyright laws, the author or authors
+    of this software dedicate any and all copyright interest in the
+    software to the public domain. We make this dedication for the benefit
+    of the public at large and to the detriment of our heirs and
+    successors. We intend this dedication to be an overt act of
+    relinquishment in perpetuity of all present and future rights to this
+    software under copyright law.
+
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+    EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+    MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+    IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
+    OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+    ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+    OTHER DEALINGS IN THE SOFTWARE.
+    _________________________________________________________________________
+**/
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
 #ifndef GIF_MGET
     #include <stdlib.h>
-    #define GIF_MGET(m, s, c) m = realloc((c)? 0 : m, (c)? s : 0)
+    #define GIF_MGET(m, s, c) m = (uint8_t*)realloc((c)? 0 : m, (c)? s : 0)
 #endif
 
 #define GIF_FPAL 0x80     /** Palette flag (both for GHDR and FHDR)       **/
@@ -117,7 +149,7 @@ static long GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
     uint32_t *code;
 
     /** does the size suffice our needs? **/
-    if (--(*size) <= sizeof(load))
+    if (--(*size) <= (long)sizeof(load))
         return -5;
 
     /** preparing initial values **/
@@ -146,12 +178,12 @@ static long GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
         for (; bseq > 0; bseq -= sizeof(load), *buff += sizeof(load)) {
             load = *(EMT_TYPE*)*buff;
 
-            if (bseq < sizeof(load))
+            if (bseq < (long)sizeof(load))
                 load &= (1 << (8 * bseq)) - 1;
 
             curr |= load << (ccsz + bszc);
             load >>= -bszc;
-            bszc += 8 * ((bseq < sizeof(load))? bseq : sizeof(load));
+            bszc += 8 * ((bseq < (long)sizeof(load))? bseq : sizeof(load));
 
             while (bszc >= 0) {
                 curr &= mask;
@@ -162,14 +194,14 @@ static long GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
                         *buff += bseq;
                         return (!*(*buff)++)? 1 : -1;
                     }
-                    /** 0 + (1 << ctsz): table drop code (DT); ED = DT + 1 **/
+                    /** 0 + (1 << ctsz): table drop code (TD); ED = TD + 1 **/
                     ctbl = (1 << ctsz);
                     mask = (1 << (ccsz = ctsz + 1)) - 1;
                 }
                 else {
                     /** single-pixel code (SP) or multi-pixel code (MP) **/
                     if (ctbl < GIF_CLEN - 1) {
-                        /** prev = DT? => curr < ctbl = prev **/
+                        /** prev = TD? => curr < ctbl = prev **/
                         code[++ctbl] = prev + (code[prev] & 0xFFF000) + 0x1000;
                     }
                     /** appending pixel string to the frame **/
@@ -292,7 +324,7 @@ static long GIF_Load(void *data, long size, long skip,
 
     /** checking if the stream is not empty and has a valid signature,
         the data has sufficient size and frameskip value is non-negative **/
-    if (!ghdr || (size <= sizeof(*ghdr)) || (ghdr->head != GIF_HEAD)
+    if (!ghdr || (size <= (long)sizeof(*ghdr)) || (ghdr->head != GIF_HEAD)
     || ((ghdr->type != GIF_TYP7) && (ghdr->type != GIF_TYP9)) || (skip < 0))
         return 0;
 
@@ -374,5 +406,9 @@ static long GIF_Load(void *data, long size, long skip,
     GIF_MGET(bptr, blen, 0);
     return (nfrm < 0)? -ifrm + skip : ifrm;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /** GIF_LOAD_H **/
