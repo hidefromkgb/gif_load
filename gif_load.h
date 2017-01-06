@@ -49,7 +49,7 @@ typedef struct {          /** ========= GIF RGB PALETTE ELEMENT ========= **/
 
 
 /** [ internal function, do not use ] **/
-static long GIF_SkipChunk(uint8_t **buff, long *size) {
+static long _GIF_SkipChunk(uint8_t **buff, long *size) {
     long skip;
 
     ++(*buff);
@@ -66,8 +66,8 @@ static long GIF_SkipChunk(uint8_t **buff, long *size) {
 
 
 /** [ internal function, do not use ] **/
-static long GIF_LoadFrameHeader(uint8_t **buff, long *size, GIF_GHDR *ghdr,
-                                GIF_FHDR **fhdr, GIF_RGBX **rpal) {
+static long _GIF_LoadFrameHeader(uint8_t **buff, long *size, GIF_GHDR *ghdr,
+                                 GIF_FHDR **fhdr, GIF_RGBX **rpal) {
     long rclr = 0;
 
     if ((*size -= sizeof(**fhdr)) <= 0)
@@ -102,7 +102,7 @@ static long GIF_LoadFrameHeader(uint8_t **buff, long *size, GIF_GHDR *ghdr,
       0: no end-of-data code before end-of-stream mark => [RECOVERABLE ERROR]
       1: decoding successful
  **/
-static long GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
+static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
     const long GIF_CLEN = (1 << 12); /** code table length (4096 items) **/
     long iter, /** loop iterator for expanding codes into index strings **/
          bseq, /** block sequence loop counter                          **/
@@ -310,11 +310,11 @@ static long GIF_Load(void *data, long size, long skip,
     while ((desc = *bptr++) != GIF_EOFM) {
         ifrm--;
         if (desc == GIF_FHDM) {
-            if (GIF_LoadFrameHeader(&bptr, &ifrm, ghdr, &curr, &cpal) <= 0)
+            if (_GIF_LoadFrameHeader(&bptr, &ifrm, ghdr, &curr, &cpal) <= 0)
                 break;
             nfrm++;
         }
-        if (!GIF_SkipChunk(&bptr, &ifrm))
+        if (!_GIF_SkipChunk(&bptr, &ifrm))
             break;
     }
     if (desc != GIF_EOFM)
@@ -330,10 +330,10 @@ static long GIF_Load(void *data, long size, long skip,
         desc = *buff++;
         /** found a frame **/
         if (desc == GIF_FHDM) {
-            desc = GIF_LoadFrameHeader(&buff, &size, ghdr, &curr, &cpal);
+            desc = _GIF_LoadFrameHeader(&buff, &size, ghdr, &curr, &cpal);
             /** DESC != GIF_EOFM because GIF_EOFM & (GIF_EOFM - 1) != 0 **/
             if (++ifrm > skip) {
-                if ((desc > 0) && (GIF_LoadFrame(&buff, &size, bptr) >= 0)) {
+                if ((desc > 0) && (_GIF_LoadFrame(&buff, &size, bptr) >= 0)) {
                     /** writing extracted frame to its persistent location;
                         see also TransColor in the description of FGCH.flgs **/
                     gwfr(ghdr, curr, prev, cpal, desc, bptr, anim, nfrm,
@@ -367,7 +367,7 @@ static long GIF_Load(void *data, long size, long skip,
                 fgch = (struct GIF_FGCH*)(buff + 1 + 1);
             }
         /** found a valid GIF ending mark (or there`s no more data left) **/
-        if ((desc == GIF_EOFM) || !GIF_SkipChunk(&buff, &size))
+        if ((desc == GIF_EOFM) || !_GIF_SkipChunk(&buff, &size))
             break;
     }
     bptr -= GIF_BLEN;
