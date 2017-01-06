@@ -1,5 +1,7 @@
 # gif_load
-This is a pure ANSI C, public domain, single-call loader for animated GIFs.
+This is a public domain, single-header and single-call, ANSI C compatible
+(builds fine with `-pedantic -ansi` compiler flags, but includes `stdint.h`
+unavailable prior to C99) loader for animated GIFs.
 
 There are no strict dependencies on the standard C library. The only external
 function used by default is `realloc()` (both for freeing and allocation), but
@@ -25,7 +27,7 @@ The callback needs 11 parameters:
   * 1: background is a previous frame
   * 2: background is a frame before previous
   * [actual GIF_FHDR]: previous frame with a "hole" filled with the
-                       color of GHDR->bkgd in this GIF_FHDR`s bounds
+                       color of GIF_GHDR::bkgd in this GIF_FHDR`s bounds
 
 4. palette associated with the current (resulting) frame
 5. number of colors in the palette
@@ -54,7 +56,7 @@ again, this time with skip parameter equalling 4 to skip these 4 frames.
 
 
 
-# examples
+# usage
 Here is a simple example of how to use `GIF_Load()` to transform an animated
 GIF file into a 32-bit uncompressed TGA:
 
@@ -64,6 +66,10 @@ GIF file into a 32-bit uncompressed TGA:
 #include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+
+#ifndef _WIN32
+    #define O_BINARY 0
+#endif
 
 void FrameCallback(GIF_GHDR *ghdr, GIF_FHDR *curr, GIF_FHDR *prev,
                    GIF_RGBX *cpal, long clrs, uint8_t *bptr, void *data,
@@ -117,12 +123,12 @@ int main(int argc, char *argv[]) {
 
     if (argc < 3)
         write(1, "Input GIF and output TGA file names required!\n", 46);
-    else if ((file[0] = open(argv[1], O_RDONLY)) > 0) {
+    else if ((file[0] = open(argv[1], O_RDONLY | O_BINARY)) > 0) {
         file[1] = lseek(file[0], 0, SEEK_END);
         lseek(file[0], 0, SEEK_SET);
         read(file[0], data = malloc(file[1]), file[1]);
         close(file[0]);
-        if ((file[0] = open(argv[2], O_CREAT | O_WRONLY, 0644)) > 0) {
+        if ((file[0] = open(argv[2], O_CREAT | O_WRONLY | O_BINARY, 0644)) > 0) {
             GIF_Load(data, file[1], 0, FrameCallback, (void*)file);
             free((void*)file[1]); /** gets rewritten in FrameCallback() **/
             close(file[0]);
