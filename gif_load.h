@@ -144,8 +144,8 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
          prev, /** previous code from the code stream                   **/
          ctsz, /** minimum LZW code table size, in bits                 **/
          ccsz; /** current code table size, in bits                     **/
-    #define EMT_TYPE uint16_t
-    EMT_TYPE load, mask;
+    #define GIF_EMT_TYPE uint16_t
+    GIF_EMT_TYPE load, mask;
     uint32_t *code;
 
     /** does the size suffice our needs? **/
@@ -160,7 +160,7 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
         return -3;
 
     mask =  (1 << (ccsz = ctsz + 1)) - 1;
-    curr = *(EMT_TYPE*)*buff & mask;
+    curr = *(GIF_EMT_TYPE*)*buff & mask;
     bszc =  -ccsz;
     prev =   0;
 
@@ -176,7 +176,7 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
         if ((*size -= bseq + 1) <= 0)
             return -5;
         for (; bseq > 0; bseq -= sizeof(load), *buff += sizeof(load)) {
-            load = *(EMT_TYPE*)*buff;
+            load = *(GIF_EMT_TYPE*)*buff;
 
             if (bseq < (long)sizeof(load))
                 load &= (1 << (8 * bseq)) - 1;
@@ -237,7 +237,7 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
     } while ((bseq = *(*buff)++));
     (*size)--;
     return 0;
-    #undef EMT_TYPE
+    #undef GIF_EMT_TYPE
 }
 
 
