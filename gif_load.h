@@ -135,16 +135,16 @@ static long _GIF_LoadFrameHeader(uint8_t **buff, long *size, GIF_GHDR *ghdr,
       1: decoding successful
  **/
 static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
-    const long GIF_CLEN = (1 << 12); /** code table length (4096 items) **/
-    long iter, /** loop iterator for expanding codes into index strings **/
-         bseq, /** block sequence loop counter                          **/
-         bszc, /** bit size counter                                     **/
-         ctbl, /** code table counter, points to the last element       **/
-         curr, /** current code from the code stream                    **/
-         prev, /** previous code from the code stream                   **/
-         ctsz, /** minimum LZW code table size, in bits                 **/
-         ccsz; /** current code table size, in bits                     **/
-    #define GIF_EMT_TYPE uint16_t
+    const unsigned long GIF_CLEN = 1 << 12; /** code table length, 4096 **/
+    unsigned long iter, /** iterator to expand codes into index strings **/
+                  ctbl, /** last code table index (or >, if > GIF_CLEN) **/
+                  curr, /** current code from the code stream           **/
+                  prev; /** previous code from the code stream          **/
+             long bseq, /** block sequence loop counter                 **/
+                  bszc, /** bit size counter                            **/
+                  ctsz, /** minimum LZW code table size, in bits        **/
+                  ccsz; /** current code table size, in bits            **/
+    typedef uint16_t GIF_EMT_TYPE;
     GIF_EMT_TYPE load, mask;
     uint32_t *code;
 
@@ -186,23 +186,23 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
             bszc += 8 * ((bseq < (long)sizeof(load))? bseq : sizeof(load));
 
             while (bszc >= 0) {
-                curr &= mask;
-                if ((curr & -2) == (1 << ctsz)) {
+                if (((curr &= mask) & -2) == (1 << ctsz)) {
                     /** 1 + (1 << ctsz): end-of-data code (ED) **/
                     if (curr & 1) {
                         (*size)--;
                         *buff += bseq;
                         return (!*(*buff)++)? 1 : -1;
                     }
-                    /** 0 + (1 << ctsz): table drop code (TD); ED = TD + 1 **/
+                    /** 0 + (1 << ctsz): table drop code (TD) **/
                     ctbl = (1 << ctsz);
                     mask = (1 << (ccsz = ctsz + 1)) - 1;
                 }
                 else {
                     /** single-pixel code (SP) or multi-pixel code (MP) **/
-                    if (ctbl < GIF_CLEN - 1) {
+                    /** ctbl may exceed GIF_CLEN, this is quite normal! **/
+                    if (++ctbl < GIF_CLEN) {
                         /** prev = TD? => curr < ctbl = prev **/
-                        code[++ctbl] = prev + (code[prev] & 0xFFF000) + 0x1000;
+                        code[ctbl] = prev + (code[prev] & 0xFFF000) + 0x1000;
                     }
                     /** appending pixel string to the frame **/
                     iter = (curr >= ctbl)? prev : curr;
@@ -237,7 +237,6 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
     } while ((bseq = *(*buff)++));
     (*size)--;
     return 0;
-    #undef GIF_EMT_TYPE
 }
 
 
@@ -301,8 +300,7 @@ static long GIF_Load(void *data, long size, long skip,
                            **/
         uint16_t time;    /** delay in GIF time units; 1 unit = 10 ms     **/
         uint8_t tran;     /** transparent color index                     **/
-    };
-    struct GIF_FGCH *fgch = 0;
+    } *fgch = 0;
     #pragma pack(pop)
 
     const    /** GIF header constant **/

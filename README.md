@@ -79,7 +79,7 @@ void FrameCallback(GIF_GHDR *ghdr, GIF_FHDR *curr, GIF_FHDR *prev,
     uint8_t head[18] = {};
 
     #define BGRA(i) (cpal[bptr[i]].R << 16) | (cpal[bptr[i]].G << 8) \
-                   | cpal[bptr[i]].B | ((i != tran)? 0xFF000000 : 0)
+                   | cpal[bptr[i]].B | ((bptr[i] != tran)? 0xFF000000 : 0)
     if (!indx) {
         /** this is the very first frame, so we must write the header **/
         head[ 2] = 2;
