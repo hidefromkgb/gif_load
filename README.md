@@ -65,9 +65,9 @@ GIF file into a 32-bit uncompressed TGA:
 #include <unistd.h>
 #include <fcntl.h>
 
-void FrameCallback(GIF_GHDR *ghdr, GIF_FHDR *curr, GIF_FHDR *prev,
-                   GIF_RGBX *cpal, long clrs, uint8_t *bptr, void *data,
-                   long nfrm, long tran, long time, long indx);
+void NewFrame(GIF_GHDR *ghdr, GIF_FHDR *curr, GIF_FHDR *prev, GIF_RGBX *cpal,
+              long clrs, uint8_t *bptr, void *data, long nfrm, long tran,
+              long time, long indx);
 
 #ifndef _WIN32
     #define O_BINARY 0
@@ -81,9 +81,9 @@ typedef struct {
 } STAT;
 #pragma pack(pop)
 
-void FrameCallback(GIF_GHDR *ghdr, GIF_FHDR *curr, GIF_FHDR *prev,
-                   GIF_RGBX *cpal, long clrs, uint8_t *bptr, void *data,
-                   long nfrm, long tran, long time, long indx) {
+void NewFrame(GIF_GHDR *ghdr, GIF_FHDR *curr, GIF_FHDR *prev, GIF_RGBX *cpal,
+              long clrs, uint8_t *bptr, void *data, long nfrm, long tran,
+              long time, long indx) {
     uint32_t *pict, x, y, yoff, iter, ifin, dsrc, ddst;
     uint8_t head[18] = {0};
     STAT *stat = (STAT*)data;
@@ -135,21 +135,24 @@ int main(int argc, char *argv[]) {
     STAT stat = {0};
 
     if (argc < 3)
-        write(1, "need params: input-name.gif output-name.tga\n", (size_t)44);
-    if ((stat.uuid = open(argv[1], O_RDONLY | O_BINARY)) <= 0)
-        return 1;
-    stat.size = (size_t)lseek(stat.uuid, (off_t)0, SEEK_END);
-    lseek(stat.uuid, (off_t)0, SEEK_SET);
-    read(stat.uuid, stat.data = malloc(stat.size), stat.size);
-    close(stat.uuid);
-    unlink(argv[2]);
-    if ((stat.uuid = open(argv[2], O_CREAT | O_WRONLY | O_BINARY, 0644)) > 0) {
-        GIF_Load(stat.data, (long)stat.size, 0L, FrameCallback, (void*)&stat);
-        free(stat.draw);
+        write(1, "params: <in>.gif <out>.tga (1 or more times)\n", (size_t)45);
+    for (stat.uuid = 2, argc -= (~argc & 1); argc >= 3; argc -= 2) {
+        if ((stat.uuid = open(argv[argc - 2], O_RDONLY | O_BINARY)) <= 0)
+            return 1;
+        stat.size = (size_t)lseek(stat.uuid, (off_t)0, SEEK_END);
+        lseek(stat.uuid, (off_t)0, SEEK_SET);
+        read(stat.uuid, stat.data = malloc(stat.size), stat.size);
         close(stat.uuid);
-        stat.uuid = 0;
+        unlink(argv[argc - 1]);
+        stat.uuid = open(argv[argc - 1], O_CREAT | O_WRONLY | O_BINARY, 0644);
+        if (stat.uuid > 0) {
+            GIF_Load(stat.data, (long)stat.size, 0L, NewFrame, (void*)&stat);
+            free(stat.draw);
+            close(stat.uuid);
+            stat.uuid = 0;
+        }
+        free(stat.data);
     }
-    free(stat.data);
     return stat.uuid;
 }
 ```

@@ -181,6 +181,11 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
                     /** single-pixel code (SP) or multi-pixel code (MP) **/
                     /** ctbl may exceed GIF_CLEN, this is quite normal! **/
                     if (++ctbl < GIF_CLEN) {
+                        /** does the code table exceed its bit limit? **/
+                        if ((ctbl == mask) && (ctbl < GIF_CLEN - 1)) {
+                            mask = (GIF_H)(mask + mask + 1);
+                            ccsz++; /** yes; extending **/
+                        }
                         /** prev = TD? => curr < ctbl = prev **/
                         code[ctbl] = (uint32_t)prev + 0x1000
                                    + (code[prev] & 0xFFF000);
@@ -201,11 +206,6 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
                     /** adding new code to the code table **/
                     if (ctbl < GIF_CLEN)
                         code[ctbl] |= code[iter] & 0xFF000000;
-                }
-                /** does the code table exceed its bit limit? **/
-                if ((ctbl == mask) && (ctbl < GIF_CLEN - 1)) {
-                    mask = (GIF_H)(mask + mask + 1); /** yes; extending **/
-                    ccsz++;
                 }
                 prev = curr;
                 curr = load;
@@ -292,7 +292,8 @@ static long GIF_Load(void *data, long size, long skip,
     GIF_GHDR *ghdr = (GIF_GHDR*)data;
     GIF_FHDR *curr, *prev = 0;
     GIF_RGBX *cpal;
-    long desc, blen, ifrm, nfrm = 0;
+    size_t blen;
+    long desc, ifrm, nfrm = 0;
     uint8_t *buff, *bptr;
 
     /** checking if the stream is not empty and has a valid signature,
@@ -303,7 +304,7 @@ static long GIF_Load(void *data, long size, long skip,
 
     buff = (uint8_t*)(ghdr + 1); /** skipping global header **/
     if (ghdr->flgs & GIF_FPAL) /** skipping global palette if there is any **/
-        buff += (size_t)(2 << (ghdr->flgs & 7)) * sizeof(*cpal);
+        buff += (2 << (ghdr->flgs & 7)) * (ssize_t)sizeof(*cpal);
     if ((size -= buff - (uint8_t*)ghdr) <= 0)
         return 0;
 
@@ -322,8 +323,8 @@ static long GIF_Load(void *data, long size, long skip,
     if (desc != GIF_EOFM)
         nfrm = -nfrm;
 
-    blen = (long)sizeof(*bptr) * ghdr->xdim * ghdr->ydim + GIF_BLEN;
-    GIF_MGET(bptr, (size_t)blen, 1);
+    blen = sizeof(*bptr) * ghdr->xdim * ghdr->ydim + GIF_BLEN;
+    GIF_MGET(bptr, blen, 1);
     bptr += GIF_BLEN;
     ifrm = 0;
     while (skip < (nfrm < 0)? -nfrm : nfrm) { /** frame extraction loop **/
@@ -367,7 +368,7 @@ static long GIF_Load(void *data, long size, long skip,
             break; /** found a GIF ending mark, or there`s no data left  **/
     }
     bptr -= GIF_BLEN;
-    GIF_MGET(bptr, (size_t)blen, 0);
+    GIF_MGET(bptr, blen, 0);
     return (nfrm < 0)? -ifrm + skip : ifrm;
 }
 
