@@ -62,80 +62,94 @@ GIF file into a 32-bit uncompressed TGA:
 
 ```c
 #include "gif_load.h"
-
-#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
+
+void FrameCallback(GIF_GHDR *ghdr, GIF_FHDR *curr, GIF_FHDR *prev,
+                   GIF_RGBX *cpal, long clrs, uint8_t *bptr, void *data,
+                   long nfrm, long tran, long time, long indx);
 
 #ifndef _WIN32
     #define O_BINARY 0
 #endif
 
+#pragma pack(push, 1)
+typedef struct {
+    void *data, *draw;
+    size_t size;
+    int uuid;
+} STAT;
+#pragma pack(pop)
+
 void FrameCallback(GIF_GHDR *ghdr, GIF_FHDR *curr, GIF_FHDR *prev,
                    GIF_RGBX *cpal, long clrs, uint8_t *bptr, void *data,
                    long nfrm, long tran, long time, long indx) {
     uint32_t *pict, x, y, yoff, iter, ifin, dsrc, ddst;
-    uintptr_t *file = (uintptr_t*)data;
-    uint8_t head[18] = {};
-
-    #define BGRA(i) (cpal[bptr[i]].R << 16) | (cpal[bptr[i]].G << 8) \
-                   | cpal[bptr[i]].B | ((bptr[i] != tran)? 0xFF000000 : 0)
+    uint8_t head[18] = {0};
+    STAT *stat = (STAT*)data;
+    (void)clrs; (void)time;
+    #define BGRA(i) ((cpal[bptr[i]].G << 8) | (cpal[bptr[i]].R << 16) \
+                    | cpal[bptr[i]].B | (((bptr[i] - tran)? 255 : 0) << 24))
     if (!indx) {
+        /** TGA doesn`t support heights over 0xFFFF, so we have to trim: **/
+        nfrm = labs(nfrm) * ghdr->ydim;
+        nfrm = (nfrm < 0xFFFF)? nfrm : 0xFFFF;
         /** this is the very first frame, so we must write the header **/
         head[ 2] = 2;
-        head[12] = (ghdr->xdim     ) & 0xFF;
-        head[13] = (ghdr->xdim >> 8) & 0xFF;
-        head[14] = ((labs(nfrm) * ghdr->ydim)     ) & 0xFF;
-        head[15] = ((labs(nfrm) * ghdr->ydim) >> 8) & 0xFF;
+        head[12] = (uint8_t)(ghdr->xdim     );
+        head[13] = (uint8_t)(ghdr->xdim >> 8);
+        head[14] = (uint8_t)(nfrm     );
+        head[15] = (uint8_t)(nfrm >> 8);
         head[16] = 32;   /** 32 bits depth **/
         head[17] = 0x20; /** top-down flag **/
-        write(file[0], head, 18);
-        file[1] = (uintptr_t)calloc(ghdr->xdim * ghdr->ydim, sizeof(uint32_t));
+        write(stat->uuid, head, (size_t)18);
+        stat->draw = calloc((size_t)ghdr->xdim * ghdr->ydim, sizeof(uint32_t));
     }
     /** interlacing support **/
     iter = (curr->flgs & GIF_FINT)? 0 : 4;
     ifin = (curr->flgs & GIF_FINT)? 4 : 5;
 
-    pict = (uint32_t*)file[1];
+    pict = (uint32_t*)stat->draw;
     if ((uintptr_t)prev > (uintptr_t)sizeof(prev)) {
         /** background: previous frame with a hole **/
-        ddst = ghdr->xdim * prev->yoff + prev->xoff;
+        ddst = (uint32_t)ghdr->xdim * prev->yoff + prev->xoff;
         for (y = 0; y < prev->ydim; y++)
             for (x = 0; x < prev->xdim; x++)
-                pict[ghdr->xdim * y + x + ddst] = BGRA(ghdr->bkgd);
+                pict[ghdr->xdim * y + x + ddst] = (uint32_t)BGRA(ghdr->bkgd);
     }
     /** [TODO:] the frame is assumed to be inside global bounds,
                 however it might exceed them in some GIFs; fix me. **/
-    ddst = ghdr->xdim * curr->yoff + curr->xoff;
-    for (dsrc = -1; iter < ifin; iter++)
-        for (yoff = 16 >> ((iter > 1)? iter : 1), y = (8 >> iter) & 7;
+    ddst = (uint32_t)ghdr->xdim * curr->yoff + curr->xoff;
+    for (dsrc = (uint32_t)-1; iter < ifin; iter++)
+        for (yoff = 16U >> ((iter > 1)? iter : 1), y = (8 >> iter) & 7;
              y < curr->ydim; y += yoff)
             for (x = 0; x < curr->xdim; x++)
                 if (tran != (long)bptr[++dsrc])
-                    pict[ghdr->xdim * y + x + ddst] = BGRA(dsrc);
-    write(file[0], pict, ghdr->xdim * ghdr->ydim * sizeof(uint32_t));
+                    pict[ghdr->xdim * y + x + ddst] = (uint32_t)BGRA(dsrc);
+    write(stat->uuid, pict,
+         (size_t)ghdr->xdim * ghdr->ydim * sizeof(uint32_t));
     #undef BGRA
 }
 
 int main(int argc, char *argv[]) {
-    intptr_t file[2];
-    void *data;
+    STAT stat = {0};
 
     if (argc < 3)
-        write(1, "Input GIF and output TGA file names required!\n", 46);
-    else if ((file[0] = open(argv[1], O_RDONLY | O_BINARY)) > 0) {
-        file[1] = lseek(file[0], 0, SEEK_END);
-        lseek(file[0], 0, SEEK_SET);
-        read(file[0], data = malloc(file[1]), file[1]);
-        close(file[0]);
-        if ((file[0] = open(argv[2], O_CREAT | O_WRONLY | O_BINARY, 0644)) > 0) {
-            GIF_Load(data, file[1], 0, FrameCallback, (void*)file);
-            free((void*)file[1]); /** gets rewritten in FrameCallback() **/
-            close(file[0]);
-        }
-        free(data);
-        return 0;
+        write(1, "need params: input-name.gif output-name.tga\n", (size_t)44);
+    if ((stat.uuid = open(argv[1], O_RDONLY | O_BINARY)) <= 0)
+        return 1;
+    stat.size = (size_t)lseek(stat.uuid, (off_t)0, SEEK_END);
+    lseek(stat.uuid, (off_t)0, SEEK_SET);
+    read(stat.uuid, stat.data = malloc(stat.size), stat.size);
+    close(stat.uuid);
+    unlink(argv[2]);
+    if ((stat.uuid = open(argv[2], O_CREAT | O_WRONLY | O_BINARY, 0644)) > 0) {
+        GIF_Load(stat.data, (long)stat.size, 0L, FrameCallback, (void*)&stat);
+        free(stat.draw);
+        close(stat.uuid);
+        stat.uuid = 0;
     }
-    return 1;
+    free(stat.data);
+    return stat.uuid;
 }
 ```
