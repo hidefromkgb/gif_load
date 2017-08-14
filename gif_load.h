@@ -74,6 +74,11 @@ typedef struct {          /** ============ MAIN FRAME HEADER ============ **/
                            **/
 } GIF_FHDR;
 
+typedef struct {          /** ======= APPLICATION METADATA HEADER ======= **/
+    uint8_t name[8];      /** app name, consists of printable characters  **/
+    uint8_t auth[3];      /** authentication code set by the app vendor   **/
+} GIF_AHDR;
+
 typedef struct {          /** ========= GIF RGB PALETTE ELEMENT ========= **/
     uint8_t R, G, B;      /** color values: red, green, blue              **/
 } GIF_RGBX;
@@ -248,6 +253,16 @@ typedef void (*GIF_GWFR)(GIF_GHDR *ghdr, GIF_FHDR *curr, GIF_FHDR *prev,
                          long nfrm, long tran, long time, long indx);
 
 /** _________________________________________________________________________
+    Application metadata reader. Only passes the header, so the callee has to
+    be able to parse GIF chunks.
+    _________________________________________________________________________
+    AHDR: application metadata header, followed by the actual data wrapped in
+          a GIF chunk
+    DATA: implementation-specific data (e.g. a structure or a pointer to it)
+ **/
+typedef void (*GIF_AMDF)(GIF_AHDR *ahdr, void *data);
+
+/** _________________________________________________________________________
     The main loading function. Returns the total number of frames if the data
     includes proper GIF ending, and otherwise it returns the number of frames
     loaded per current call, multiplied by -1. So, the data may be incomplete
@@ -257,11 +272,12 @@ typedef void (*GIF_GWFR)(GIF_GHDR *ghdr, GIF_FHDR *curr, GIF_FHDR *prev,
     DATA: raw data chunk, may be partial
     SIZE: size of the data chunk that`s currently present
     SKIP: number of frames to skip before resuming
-    GWFR: callback function described above
+    GWFR: frame writer function described above, MANDATORY
+    AMDF: metadata reader function described above, set to 0 if not needed
     ANIM: implementation-specific data (e.g. a structure or a pointer to it)
  **/
 static long GIF_Load(void *data, long size, long skip,
-                     GIF_GWFR gwfr, void *anim) {
+                     GIF_GWFR gwfr, GIF_AMDF amdf, void *anim) {
     const    /** GIF header constant **/
     uint32_t GIF_HEAD = 'G' + 'I' * 0x100 + 'F' * 0x10000 + '8' * 0x1000000,
              GIF_BLEN = (1 << 12) * sizeof(uint32_t); /** ctbl byte size  **/
@@ -270,7 +286,8 @@ static long GIF_Load(void *data, long size, long skip,
     const  uint8_t GIF_EHDM = 0x21, /** extension header mark             **/
                    GIF_FHDM = 0x2C, /** frame header mark                 **/
                    GIF_EOFM = 0x3B, /** end-of-file mark                  **/
-                   GIF_FGCM = 0xF9; /** frame graphics control mark       **/
+                   GIF_FGCM = 0xF9, /** frame graphics control mark       **/
+                   GIF_AMDM = 0xFF; /** application metadata mark         **/
     #pragma pack(push, 1)
     struct GIF_FGCH {     /** ==== EXTENSION: FRAME GRAPHICS CONTROL ==== **/
         uint8_t flgs;     /** FLAGS:
@@ -359,11 +376,16 @@ static long GIF_Load(void *data, long size, long skip,
                 }
             }
         }
-        else if (desc == GIF_EHDM) /** found an extension **/
-            if (*buff == GIF_FGCM) {
+        else if (desc == GIF_EHDM) { /** found an extension **/
+            if (*buff == GIF_FGCM) { /** frame graphics control **/
                 /** 1 byte for FGCM, 1 for chunk size (must equal 0x04)  **/
                 fgch = (struct GIF_FGCH*)(buff + 1 + 1);
             }
+            else if (*buff == GIF_AMDM) { /** application metadata **/
+                if (amdf)
+                    amdf((GIF_AHDR*)(buff + 1 + 1), anim);
+            }
+        }
         if ((desc == GIF_EOFM) || !_GIF_SkipChunk(&buff, &size))
             break; /** found a GIF ending mark, or there`s no data left  **/
     }

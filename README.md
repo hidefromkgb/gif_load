@@ -15,10 +15,21 @@ or otherwise mapped into RAM by the caller.
 
 The main function that does the actual loading is called `GIF_Load()`.
 It requires a `__cdecl`-conventioned callback function to create the animation
-structure of any caller-defined format. This callback will be executed once
-every frame.
+structure of any caller-defined format. This frame writer callback will be
+executed once every frame.
 
-The callback needs 11 parameters:
+Aditionally, it accepts a second callback used to process GIF
+application-specific extensions, i.e. metadata; in the vast majority of
+GIFs no such extensions are present, so this callback is optional.
+
+The metadata callback needs 2 parameters:
+
+1. GIF application-specific extension header; after it comes the metadata
+   itself, wrapped in a GIF chunk (1 byte designating length L, then L bytes
+   of data, and so forth; L = 0 means end of chunk)
+2. callback-specific data
+
+The frame writer callback needs 11 parameters:
 
 1. GIF animation global header
 2. header of the resulting frame (the one just decoded)
@@ -38,15 +49,16 @@ The callback needs 11 parameters:
 10. next frame delay, in GIF time units (1 unit = 10 ms); can be 0
 11. 0-based index of the resulting frame
 
-`GIF_Load()`, in its turn, needs 5:
+`GIF_Load()`, in its turn, needs 6:
 
 1. a pointer to GIF data in RAM
 2. GIF data size; may be larger than the actual data if the GIF has a proper
    ending mark
 3. number of frames to skip before executing the callback; useful to resume
    loading the partial file
-4. a pointer to the callback function
-5. callback-specific data
+4. a pointer to the frame writer callback
+5. a pointer to the metadata callback; may be left empty
+6. callback-specific data
 
 The library supports partial GIFs, but only at a frame-by-frame granularity.
 For example, if the file ends in the middle of the fifth frame, no attempt
@@ -65,9 +77,9 @@ GIF file into a 32-bit uncompressed TGA:
 #include <unistd.h>
 #include <fcntl.h>
 
-void NewFrame(GIF_GHDR *ghdr, GIF_FHDR *curr, GIF_FHDR *prev, GIF_RGBX *cpal,
-              long clrs, uint8_t *bptr, void *data, long nfrm, long tran,
-              long time, long indx);
+void Frame(GIF_GHDR *ghdr, GIF_FHDR *curr, GIF_FHDR *prev, GIF_RGBX *cpal,
+           long clrs, uint8_t *bptr, void *data, long nfrm, long tran,
+           long time, long indx);
 
 #ifndef _WIN32
     #define O_BINARY 0
@@ -81,9 +93,9 @@ typedef struct {
 } STAT;
 #pragma pack(pop)
 
-void NewFrame(GIF_GHDR *ghdr, GIF_FHDR *curr, GIF_FHDR *prev, GIF_RGBX *cpal,
-              long clrs, uint8_t *bptr, void *data, long nfrm, long tran,
-              long time, long indx) {
+void Frame(GIF_GHDR *ghdr, GIF_FHDR *curr, GIF_FHDR *prev, GIF_RGBX *cpal,
+           long clrs, uint8_t *bptr, void *data, long nfrm, long tran,
+           long time, long indx) {
     uint32_t *pict, x, y, yoff, iter, ifin, dsrc, ddst;
     uint8_t head[18] = {0};
     STAT *stat = (STAT*)data;
@@ -146,7 +158,7 @@ int main(int argc, char *argv[]) {
         unlink(argv[argc - 1]);
         stat.uuid = open(argv[argc - 1], O_CREAT | O_WRONLY | O_BINARY, 0644);
         if (stat.uuid > 0) {
-            GIF_Load(stat.data, (long)stat.size, 0L, NewFrame, (void*)&stat);
+            GIF_Load(stat.data, (long)stat.size, 0L, Frame, 0, (void*)&stat);
             free(stat.draw);
             close(stat.uuid);
             stat.uuid = 0;
