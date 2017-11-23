@@ -10,6 +10,11 @@ prior to including the header; `m` stands for a `uint8_t` typed pointer to the
 memory block being allocated or freed, `s` is the target block size, and `c`
 equals 0 on freeing and 1 on allocation.
 
+The library is endian-aware. To check if the target machine is big-endian,
+refer to the `GIF_BIGE` compile-time boolean macro. Note that GIF data is
+strictly little-endian, so all 16/32-bit values in `GIF_*` structures need
+to be byte-swapped prior to being used on a big-endian machine.
+
 Loading GIFs immediately from disk is not supported: target files must be read
 or otherwise mapped into RAM by the caller.
 
@@ -37,8 +42,8 @@ The frame writer callback needs 11 parameters:
   * 0: no background needed (used in single-frame GIFs / first frames)
   * 1: background is a previous frame
   * 2: background is a frame before previous
-  * [actual GIF_FHDR]: previous frame with a "hole" filled with the
-                       color of GIF_GHDR::bkgd in this GIF_FHDR`s bounds
+  * [actual `GIF_FHDR`]: previous frame with a "hole" filled with the color
+                         of `GIF_GHDR::bkgd` in this `GIF_FHDR` `s bounds
 
 4. palette associated with the current (resulting) frame
 5. number of colors in the palette
@@ -100,22 +105,26 @@ void Frame(GIF_GHDR *ghdr, GIF_FHDR *curr, GIF_FHDR *prev, GIF_RGBX *cpal,
     uint8_t head[18] = {0};
     STAT *stat = (STAT*)data;
     (void)clrs; (void)time;
-    #define BGRA(i) ((cpal[bptr[i]].G << 8) | (cpal[bptr[i]].R << 16) \
-                    | cpal[bptr[i]].B | (((bptr[i] - tran)? 255 : 0) << 24))
+    #define CONV(i) ((GIF_BIGE)? (uint16_t)((i << 8) | (i >> 8)) : i)
+    #define BGRA(i) (uint32_t)((cpal[bptr[i]].R << ((GIF_BIGE)? 8 : 16)) | \
+                               (cpal[bptr[i]].G << ((GIF_BIGE)? 16 : 8)) | \
+                               (cpal[bptr[i]].B << ((GIF_BIGE)? 24 : 0)) | \
+                    ((bptr[i] - tran)? (GIF_BIGE)? 0xFF : 0xFF000000 : 0))
     if (!indx) {
         /** TGA doesn`t support heights over 0xFFFF, so we have to trim: **/
-        nfrm = labs(nfrm) * ghdr->ydim;
+        nfrm = ((nfrm < 0)? -nfrm : nfrm) * CONV(ghdr->ydim);
         nfrm = (nfrm < 0xFFFF)? nfrm : 0xFFFF;
         /** this is the very first frame, so we must write the header **/
         head[ 2] = 2;
-        head[12] = (uint8_t)(ghdr->xdim     );
-        head[13] = (uint8_t)(ghdr->xdim >> 8);
+        head[12] = (uint8_t)(CONV(ghdr->xdim)     );
+        head[13] = (uint8_t)(CONV(ghdr->xdim) >> 8);
         head[14] = (uint8_t)(nfrm     );
         head[15] = (uint8_t)(nfrm >> 8);
         head[16] = 32;   /** 32 bits depth **/
         head[17] = 0x20; /** top-down flag **/
         write(stat->uuid, head, (size_t)18);
-        stat->draw = calloc((size_t)ghdr->xdim * ghdr->ydim, sizeof(uint32_t));
+        stat->draw = calloc(CONV(ghdr->xdim) * CONV(ghdr->ydim),
+                            sizeof(uint32_t));
     }
     /** interlacing support **/
     iter = (curr->flgs & GIF_FINT)? 0 : 4;
@@ -124,23 +133,26 @@ void Frame(GIF_GHDR *ghdr, GIF_FHDR *curr, GIF_FHDR *prev, GIF_RGBX *cpal,
     pict = (uint32_t*)stat->draw;
     if ((uintptr_t)prev > (uintptr_t)sizeof(prev)) {
         /** background: previous frame with a hole **/
-        ddst = (uint32_t)ghdr->xdim * prev->yoff + prev->xoff;
-        for (y = 0; y < prev->ydim; y++)
-            for (x = 0; x < prev->xdim; x++)
-                pict[ghdr->xdim * y + x + ddst] = (uint32_t)BGRA(ghdr->bkgd);
+        ddst = (uint32_t)CONV(ghdr->xdim) * CONV(prev->yoff)
+                       + CONV(prev->xoff);
+        for (y = 0; y < CONV(prev->ydim); y++)
+            for (x = 0; x < CONV(prev->xdim); x++)
+                pict[CONV(ghdr->xdim) * y + x + ddst] = BGRA(ghdr->bkgd);
     }
     /** [TODO:] the frame is assumed to be inside global bounds,
                 however it might exceed them in some GIFs; fix me. **/
-    ddst = (uint32_t)ghdr->xdim * curr->yoff + curr->xoff;
+    ddst = (uint32_t)CONV(ghdr->xdim) * CONV(curr->yoff)
+                   + CONV(curr->xoff);
     for (dsrc = (uint32_t)-1; iter < ifin; iter++)
         for (yoff = 16U >> ((iter > 1)? iter : 1), y = (8 >> iter) & 7;
-             y < curr->ydim; y += yoff)
-            for (x = 0; x < curr->xdim; x++)
+             y < CONV(curr->ydim); y += yoff)
+            for (x = 0; x < CONV(curr->xdim); x++)
                 if (tran != (long)bptr[++dsrc])
-                    pict[ghdr->xdim * y + x + ddst] = (uint32_t)BGRA(dsrc);
-    write(stat->uuid, pict,
-         (size_t)ghdr->xdim * ghdr->ydim * sizeof(uint32_t));
+                    pict[CONV(ghdr->xdim) * y + x + ddst] = BGRA(dsrc);
+    write(stat->uuid, pict, CONV(ghdr->xdim) * CONV(ghdr->ydim)
+                          * sizeof(uint32_t));
     #undef BGRA
+    #undef CONV
 }
 
 int main(int argc, char *argv[]) {

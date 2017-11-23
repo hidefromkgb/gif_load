@@ -41,13 +41,13 @@ extern "C" {
     #define GIF_MGET(m, s, c) m = (uint8_t*)realloc((c)? 0 : m, (c)? s : 0)
 #endif
 
+#define GIF_BIGE (*(uint16_t*)"\x7F\x01" == 0x7F01) /** BigEndian machine **/
 #define GIF_FPAL 0x80     /** Palette flag (both for GHDR and FHDR)       **/
 #define GIF_FINT 0x40     /** Interlace flag (FHDR only)                  **/
 
 #pragma pack(push, 1)
 typedef struct {          /** ============ GLOBAL GIF HEADER ============ **/
-    uint32_t head;        /** 'GIF8' header signature                     **/
-    uint16_t type;        /** '7a' or '9a', depending on the type         **/
+    uint8_t head[6];      /** 'GIF87a' / 'GIF89a' header signature        **/
     uint16_t xdim, ydim;  /** total image width, total image height       **/
     uint8_t flgs;         /** FLAGS:
                               GlobalPlt    bit 7     1: global palette exists
@@ -157,7 +157,9 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
         return -4;
     if ((ctsz < 2) || (ctsz > 8))
         return -3;
-    if ((curr = *(GIF_H*)*buff & mask) != (ctbl = (1UL << ctsz)))
+    curr = (!GIF_BIGE)? *(GIF_H*)*buff
+         : ((*(GIF_H*)*buff << 8) | (*(GIF_H*)*buff >> 8));
+    if ((curr &= mask) != (ctbl = (1UL << ctsz)))
         return -2;
     for (bszc = -ccsz, prev = iter = 0; iter < ctbl; iter++)
         code[iter] = (uint32_t)(iter << 24); /** persistent table items **/
@@ -167,7 +169,9 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
             return -5;
         for (; bseq > 0; bseq -= GIF_HLEN, *buff += (ssize_t)GIF_HLEN) {
             load = (GIF_H)((bseq < GIF_HLEN)? (1 << (8 * bseq)) - 1 : ~0);
-            curr |= (GIF_U)((load &= *(GIF_H*)*buff) << (ccsz + bszc));
+            load &= (!GIF_BIGE)? *(GIF_H*)*buff
+                  : ((*(GIF_H*)*buff << 8) | (*(GIF_H*)*buff >> 8));
+            curr |= (GIF_U)(load << (ccsz + bszc));
             load = (GIF_H)(load >> -bszc);
             bszc += 8 * ((bseq < GIF_HLEN)? bseq : GIF_HLEN);
             while (bszc >= 0) {
@@ -278,11 +282,7 @@ typedef void (*GIF_AMDF)(GIF_AHDR *ahdr, void *data);
  **/
 static long GIF_Load(void *data, long size, long skip,
                      GIF_GWFR gwfr, GIF_AMDF amdf, void *anim) {
-    const    /** GIF header constant **/
-    uint32_t GIF_HEAD = 'G' + 'I' * 0x100 + 'F' * 0x10000 + '8' * 0x1000000,
-             GIF_BLEN = (1 << 12) * sizeof(uint32_t); /** ctbl byte size  **/
-    const uint16_t GIF_TYP7 = '7' + 'a' * 0x100,      /** older GIF type  **/
-                   GIF_TYP9 = '9' + 'a' * 0x100;      /** newer GIF type  **/
+    const uint32_t GIF_BLEN = (1 << 12) * sizeof(uint32_t);
     const  uint8_t GIF_EHDM = 0x21, /** extension header mark             **/
                    GIF_FHDM = 0x2C, /** frame header mark                 **/
                    GIF_EOFM = 0x3B, /** end-of-file mark                  **/
@@ -315,8 +315,9 @@ static long GIF_Load(void *data, long size, long skip,
 
     /** checking if the stream is not empty and has a valid signature,
         the data has sufficient size and frameskip value is non-negative **/
-    if (!ghdr || (size <= (long)sizeof(*ghdr)) || (ghdr->head != GIF_HEAD)
-    || ((ghdr->type != GIF_TYP7) && (ghdr->type != GIF_TYP9)) || (skip < 0))
+    if (!ghdr || (size <= (long)sizeof(*ghdr)) || (*(buff = ghdr->head) != 'G')
+    || (buff[1] != 'I') || (buff[2] != 'F') || (buff[3] != '8') || (skip < 0)
+    || ((buff[4] != '7') && (buff[4] != '9')) || (buff[5] != 'a'))
         return 0;
 
     buff = (uint8_t*)(ghdr + 1); /** skipping global header **/
@@ -340,7 +341,9 @@ static long GIF_Load(void *data, long size, long skip,
     if (desc != GIF_EOFM)
         nfrm = -nfrm;
 
-    blen = sizeof(*bptr) * ghdr->xdim * ghdr->ydim + GIF_BLEN;
+    blen = GIF_BLEN + sizeof(*bptr) * ((!GIF_BIGE)? ghdr->xdim * ghdr->ydim :
+    /** big-endian swap **/ (uint16_t)((ghdr->xdim << 8) | (ghdr->xdim >> 8)) *
+    /** big-endian swap **/ (uint16_t)((ghdr->ydim << 8) | (ghdr->ydim >> 8)));
     GIF_MGET(bptr, blen, 1);
     bptr += GIF_BLEN;
     ifrm = 0;
