@@ -41,6 +41,7 @@ extern "C" {
     #define GIF_MGET(m, s, c) m = (uint8_t*)realloc((c)? 0 : m, (c)? s : 0)
 #endif
 
+#define _GIF_SWAP(h) ((GIF_BIGE)? (uint16_t)((h << 8) | (h >> 8)) : h)
 #define GIF_BIGE (*(uint16_t*)"\x7F\x01" == 0x7F01) /** BigEndian machine **/
 #define GIF_FPAL 0x80     /** Palette flag (both for GHDR and FHDR)       **/
 #define GIF_FINT 0x40     /** Interlace flag (FHDR only)                  **/
@@ -157,38 +158,36 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
         return -4;
     if ((ctsz < 2) || (ctsz > 8))
         return -3;
-    curr = (!GIF_BIGE)? *(GIF_H*)*buff
-         : ((*(GIF_H*)*buff << 8) | (*(GIF_H*)*buff >> 8));
-    if ((curr &= mask) != (ctbl = (1UL << ctsz)))
+    if (((curr = mask & _GIF_SWAP(*(GIF_H*)*buff))) != (ctbl = (1UL << ctsz)))
         return -2;
     for (bszc = -ccsz, prev = iter = 0; iter < ctbl; iter++)
         code[iter] = (uint32_t)(iter << 24); /** persistent table items **/
 
-    do { /** splitting data stream into codes **/
+    do { /** splitting the data stream into codes **/
         if ((*size -= bseq + 1) <= 0)
             return -5;
         for (; bseq > 0; bseq -= GIF_HLEN, *buff += (ssize_t)GIF_HLEN) {
-            load = (GIF_H)((bseq < GIF_HLEN)? (1 << (8 * bseq)) - 1 : ~0);
-            load &= (!GIF_BIGE)? *(GIF_H*)*buff
-                  : ((*(GIF_H*)*buff << 8) | (*(GIF_H*)*buff >> 8));
+            load = ((bseq < GIF_HLEN)? (1 << (8 * bseq)) - 1 : ~0)
+                 & _GIF_SWAP(*(GIF_H*)*buff);
             curr |= (GIF_U)(load << (ccsz + bszc));
             load = (GIF_H)(load >> -bszc);
             bszc += 8 * ((bseq < GIF_HLEN)? bseq : GIF_HLEN);
             while (bszc >= 0) {
                 if (((curr &= mask) & (GIF_U)~1) == (GIF_U)(1 << ctsz)) {
                     if (curr & 1) {
-                        /** 1 + (1 << ctsz): end-of-data code (ED) **/
+                        /** 1 + (1 << ctsz): end-of-data code (ED). **/
                         (*size)--;
                         *buff += bseq;
                         return (!*(*buff)++)? 1 : -1;
                     }
-                    /** 0 + (1 << ctsz): table drop code (TD) **/
+                    /** 0 + (1 << ctsz): table drop code (TD). **/
                     ctbl = (GIF_U)(1 << ctsz);
                     mask = (GIF_H)((1 << (ccsz = ctsz + 1)) - 1);
                 }
                 else {
-                    /** single-pixel code (SP) or multi-pixel code (MP) **/
-                    /** ctbl may exceed GIF_CLEN, this is quite normal! **/
+                    /** single-pixel code (SP) or multi-pixel code (MP). **/
+                    /** ctbl may exceed GIF_CLEN: it can`t overflow even **/
+                    /** if the frame`s 65535x65535 (max), being unsigned **/
                     if (++ctbl < GIF_CLEN) {
                         /** does the code table exceed its bit limit? **/
                         if ((ctbl == mask) && (ctbl < GIF_CLEN - 1)) {
@@ -199,7 +198,7 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
                         code[ctbl] = (uint32_t)prev + 0x1000
                                    + (code[prev] & 0xFFF000);
                     }
-                    /** appending pixel string to the frame **/
+                    /** appending pixels decoded from SP/MP to the frame **/
                     iter = (curr >= ctbl)? prev : curr;
                     bptr += (prev = (code[iter] >> 12) & 0xFFF);
                     while (!0) {
@@ -212,7 +211,7 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
                     if (curr >= ctbl)
                         *bptr++ = (uint8_t)(code[iter] >> 24);
 
-                    /** adding new code to the code table **/
+                    /** adding a new code to the code table **/
                     if (ctbl < GIF_CLEN)
                         code[ctbl] |= code[iter] & 0xFF000000;
                 }
@@ -341,9 +340,8 @@ static long GIF_Load(void *data, long size, long skip,
     if (desc != GIF_EOFM)
         nfrm = -nfrm;
 
-    blen = GIF_BLEN + sizeof(*bptr) * ((!GIF_BIGE)? ghdr->xdim * ghdr->ydim :
-    /** big-endian swap **/ (uint16_t)((ghdr->xdim << 8) | (ghdr->xdim >> 8)) *
-    /** big-endian swap **/ (uint16_t)((ghdr->ydim << 8) | (ghdr->ydim >> 8)));
+    blen = GIF_BLEN + sizeof(*bptr) * _GIF_SWAP(ghdr->xdim)
+                                    * _GIF_SWAP(ghdr->ydim);
     GIF_MGET(bptr, blen, 1);
     bptr += GIF_BLEN;
     ifrm = 0;
@@ -358,7 +356,7 @@ static long GIF_Load(void *data, long size, long skip,
                         see also TransColor in the description of FGCH.flgs **/
                     gwfr(ghdr, curr, prev, cpal, desc, bptr, anim, nfrm,
                         (long)((fgch && (fgch->flgs & 0x01))? fgch->tran : -1),
-                        (long)((fgch)? fgch->time : 0), ifrm - 1);
+                        (long)((fgch)? _GIF_SWAP(fgch->time) : 0), ifrm - 1);
                     /** computing blend mode for the next frame **/
                     switch ((fgch)? fgch->flgs & 0x1C : 0x00) {
                         /** restore background **/
@@ -397,8 +395,8 @@ static long GIF_Load(void *data, long size, long skip,
     return (nfrm < 0)? -ifrm + skip : ifrm;
 }
 
+#undef _GIF_SWAP
 #ifdef __cplusplus
 }
 #endif
-
 #endif /** GIF_LOAD_H **/
