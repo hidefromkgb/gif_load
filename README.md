@@ -100,6 +100,8 @@ GIF file into a 32-bit uncompressed TGA:
     /** MSVC is definitely not my favourite compiler...   >_<   **/
     #pragma warning(disable:4996)
     #include <io.h>
+#else
+    #include <unistd.h>
 #endif
 #ifndef _WIN32
     #define O_BINARY 0
