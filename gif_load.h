@@ -34,8 +34,12 @@ extern "C" {
 #endif
 
 #include <stdint.h> /** imports uint8_t, uint16_t and uint32_t **/
-#include <unistd.h> /** imports size_t and ssize_t **/
-
+#ifndef _MSC_VER
+    #include <unistd.h> /** imports size_t and ssize_t **/
+#else
+    #include <basetsd.h> /** imports size_t and SSIZE_T **/
+    #define ssize_t SSIZE_T
+#endif
 #ifndef GIF_MGET
     #include <stdlib.h>
     #define GIF_MGET(m, s, c) m = (uint8_t*)realloc((c)? 0 : m, (c)? s : 0)
@@ -293,7 +297,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
     GIF_MGET(whdr.bptr, ((size_t)blen), 1);
     whdr.bptr += GIF_BLEN;
     whdr.ifrm = -1;
-    while (skip < (whdr.nfrm < 0)? -whdr.nfrm : whdr.nfrm) {
+    while (skip < ((whdr.nfrm < 0)? -whdr.nfrm : whdr.nfrm)) {
         size--; /** frame extraction loop **/
         if ((desc = *buff++) == GIF_FHDM) { /** found a frame **/
             fhdr = (struct GIF_FHDR*)buff;

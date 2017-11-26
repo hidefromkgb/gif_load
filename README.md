@@ -95,9 +95,12 @@ GIF file into a 32-bit uncompressed TGA:
 
 ```c
 #include "gif_load.h"
-#include <unistd.h>
 #include <fcntl.h>
-
+#ifdef _MSC_VER
+    /** MSVC is definitely not my favourite compiler...   >_<   **/
+    #pragma warning(disable:4996)
+    #include <io.h>
+#endif
 #ifndef _WIN32
     #define O_BINARY 0
 #endif
@@ -166,8 +169,8 @@ int main(int argc, char *argv[]) {
     for (stat.uuid = 2, argc -= (~argc & 1); argc >= 3; argc -= 2) {
         if ((stat.uuid = open(argv[argc - 2], O_RDONLY | O_BINARY)) <= 0)
             return 1;
-        stat.size = (size_t)lseek(stat.uuid, (off_t)0, SEEK_END);
-        lseek(stat.uuid, (off_t)0, SEEK_SET);
+        stat.size = (size_t)lseek(stat.uuid, (size_t)0, 2 /** SEEK_END **/);
+        lseek(stat.uuid, (size_t)0, 0 /** SEEK_SET **/);
         read(stat.uuid, stat.data = malloc(stat.size), stat.size);
         close(stat.uuid);
         unlink(argv[argc - 1]);
