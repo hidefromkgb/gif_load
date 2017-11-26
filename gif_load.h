@@ -34,12 +34,6 @@ extern "C" {
 #endif
 
 #include <stdint.h> /** imports uint8_t, uint16_t and uint32_t **/
-#ifndef _MSC_VER
-    #include <unistd.h> /** imports size_t and ssize_t **/
-#else
-    #include <basetsd.h> /** imports size_t and SSIZE_T **/
-    #define ssize_t SSIZE_T
-#endif
 #ifndef GIF_MGET
     #include <stdlib.h>
     #define GIF_MGET(m, s, c) m = (uint8_t*)realloc((c)? 0 : m, (c)? s : 0)
@@ -82,22 +76,22 @@ static long _GIF_SkipChunk(uint8_t **buff, long *size) {
 }
 
 /** [ internal function, do not use ] **/
-static long _GIF_LoadFrameHdr(uint8_t **buff, long *size, ssize_t flen,
+static long _GIF_LoadFrameHdr(uint8_t **buff, long *size, long flen,
                               long gflg, long fflg, GIF_RGBX **rpal) {
     const uint8_t GIF_FPAL = 0x80; /** "palette is present" flag **/
-    ssize_t rclr = 0;
+    long rclr = 0;
 
     if (flen && (!(*buff += flen) || ((*size -= flen) <= 0)))
         return -2;
     if (flen && (fflg & GIF_FPAL)) { /** local palette has priority **/
         *rpal = (GIF_RGBX*)*buff;
-        *buff += (rclr = 2 << (fflg & 7)) * (ssize_t)sizeof(**rpal);
-        if ((*size -= rclr * (ssize_t)sizeof(**rpal)) <= 0)
+        *buff += (rclr = 2 << (fflg & 7)) * (long)sizeof(**rpal);
+        if ((*size -= rclr * (long)sizeof(**rpal)) <= 0)
             return -1;
     }
     else if (gflg & GIF_FPAL) /** no local palette, using global! **/
         rclr = 2 << (gflg & 7);
-    return (long)rclr;
+    return rclr;
 }
 
 /** [ internal function, do not use ] **/
@@ -133,7 +127,7 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
     do { /** splitting the data stream into codes **/
         if ((*size -= bseq + 1) <= 0)
             return -5; /** unexpected end of the data stream **/
-        for (; bseq > 0; bseq -= GIF_HLEN, *buff += (ssize_t)GIF_HLEN) {
+        for (; bseq > 0; bseq -= GIF_HLEN, *buff += GIF_HLEN) {
             load = (GIF_H)(_GIF_SWAP(*(GIF_H*)*buff)
                  & ((bseq < GIF_HLEN)? ((1U << (8 * bseq)) - 1U) : ~0U));
             curr |= (GIF_U)(load << (ccsz + bszc));
@@ -268,7 +262,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
         return 0;
 
     buff = (uint8_t*)(ghdr + 1); /** skipping global header **/
-    buff += (ssize_t)sizeof(*whdr.cpal) /** skipping global palette **/
+    buff += (long)sizeof(*whdr.cpal) /** skipping global palette **/
          * _GIF_LoadFrameHdr(0, 0, 0, ghdr->flgs, 0, 0);
     if ((size -= buff - (uint8_t*)ghdr) <= 0)
         return 0;
@@ -294,7 +288,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
 
     blen = (whdr.xdim = _GIF_SWAP(ghdr->xdim)) * (long)sizeof(*whdr.bptr)
          * (whdr.ydim = _GIF_SWAP(ghdr->ydim)) + GIF_BLEN;
-    GIF_MGET(whdr.bptr, ((size_t)blen), 1);
+    GIF_MGET(whdr.bptr, ((unsigned long)blen), 1);
     whdr.bptr += GIF_BLEN;
     whdr.ifrm = -1;
     while (skip < ((whdr.nfrm < 0)? -whdr.nfrm : whdr.nfrm)) {
@@ -338,7 +332,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
             break; /** found a GIF ending mark, or there`s no data left **/
     }
     whdr.bptr -= GIF_BLEN;
-    GIF_MGET(whdr.bptr, ((size_t)blen), 0);
+    GIF_MGET(whdr.bptr, ((unsigned long)blen), 0);
     return (whdr.nfrm < 0)? -whdr.ifrm - 1 + skip : whdr.ifrm + 1;
 }
 

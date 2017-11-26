@@ -9,7 +9,7 @@ function used by default is `realloc()` (both for freeing and allocation), but
 it\`s possible to override it by defining a macro called `GIF_MGET(m, s, c)`
 prior to including the header; `m` stands for a `uint8_t`-typed pointer to the
 memory block being allocated or freed, `s` is the target block size, typed
-`size_t`, and `c` equals 0 on freeing and 1 on allocation.
+`unsigned long`, and `c` equals 0 on freeing and 1 on allocation.
 
 Loading GIFs immediately from disk is not supported: target files must be read
 or otherwise mapped into RAM by the caller.
@@ -108,7 +108,7 @@ GIF file into a 32-bit uncompressed TGA:
 #pragma pack(push, 1)
 typedef struct {
     void *data, *draw;
-    size_t size;
+    unsigned long size;
     int uuid;
 } STAT; /** #pragma avoids -Wpadded on 64-bit machines **/
 #pragma pack(pop)
@@ -136,9 +136,9 @@ void Frame(void *data, GIF_WHDR *whdr) {
         head[15] = (uint8_t)(whdr->nfrm >> 8);
         head[16] = 32;   /** 32 bits depth **/
         head[17] = 0x20; /** top-down flag **/
-        write(stat->uuid, head, (size_t)18);
+        write(stat->uuid, head, 18UL);
         stat->draw = calloc(sizeof(uint32_t),
-                           (size_t)(whdr->xdim * whdr->ydim));
+                           (unsigned long)(whdr->xdim * whdr->ydim));
     }
     /** [TODO:] the frame is assumed to be inside global bounds,
                 however it might exceed them in some GIFs; fix me. **/
@@ -165,12 +165,12 @@ int main(int argc, char *argv[]) {
     STAT stat = {0};
 
     if (argc < 3)
-        write(1, "params: <in>.gif <out>.tga (1 or more times)\n", (size_t)45);
+        write(1, "arguments: <in>.gif <out>.tga (1 or more times)\n", 48UL);
     for (stat.uuid = 2, argc -= (~argc & 1); argc >= 3; argc -= 2) {
         if ((stat.uuid = open(argv[argc - 2], O_RDONLY | O_BINARY)) <= 0)
             return 1;
-        stat.size = (size_t)lseek(stat.uuid, (size_t)0, 2 /** SEEK_END **/);
-        lseek(stat.uuid, (size_t)0, 0 /** SEEK_SET **/);
+        stat.size = (unsigned long)lseek(stat.uuid, 0UL, 2 /** SEEK_END **/);
+        lseek(stat.uuid, 0UL, 0 /** SEEK_SET **/);
         read(stat.uuid, stat.data = malloc(stat.size), stat.size);
         close(stat.uuid);
         unlink(argv[argc - 1]);
