@@ -32,11 +32,10 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
 #include <stdint.h> /** imports uint8_t, uint16_t and uint32_t **/
 #ifndef GIF_MGET
     #include <stdlib.h>
-    #define GIF_MGET(m, s, c) m = (uint8_t*)realloc((c)? 0 : m, (c)? s : 0)
+    #define GIF_MGET(m, s, c) m = (uint8_t*)realloc((c)? 0 : m, (c)? s : 0UL)
 #endif
 
 #define GIF_BIGE (*(const uint16_t*)"\x7F\x01" == 0x7F01)
@@ -268,9 +267,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
         return 0;
 
     blen = size;
-    whdr.nfrm = 0;
     whdr.bptr = buff;
-    whdr.bkgd = ghdr->bkgd;
     while ((desc = *whdr.bptr++) != GIF_EOFM) {
         blen--; /** frame counting loop **/
         if (desc == GIF_FHDM) {
@@ -278,14 +275,13 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
             if (_GIF_LoadFrameHdr(&whdr.bptr, &blen, sizeof(*fhdr),
                                    ghdr->flgs, fhdr->flgs, &whdr.cpal) <= 0)
                 break;
-            whdr.nfrm++;
+            whdr.ifrm++;
         }
         if (!_GIF_SkipChunk(&whdr.bptr, &blen))
             break;
     }
-    if (desc != GIF_EOFM)
-        whdr.nfrm = -whdr.nfrm;
-
+    whdr.bkgd = ghdr->bkgd;
+    whdr.nfrm = (desc == GIF_EOFM)? whdr.ifrm : -whdr.ifrm;
     blen = (whdr.xdim = _GIF_SWAP(ghdr->xdim)) * (long)sizeof(*whdr.bptr)
          * (whdr.ydim = _GIF_SWAP(ghdr->ydim)) + GIF_BLEN;
     GIF_MGET(whdr.bptr, ((unsigned long)blen), 1);

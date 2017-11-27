@@ -29,37 +29,37 @@ Both frame writer callback and metadata callback need 2 parameters:
 2. pointer to a `GIF_WHDR` structure that encapsulates GIF frame information
 (callbacks may alter any fields at will, as the structure passed to them is a
 proxy that is discarded after every call):
-  * `GIF_WHDR::XDIM` - global GIF width, [0; 65535]
-  * `GIF_WHDR::YDIM` - global GIF height, [0; 65535]
-  * `GIF_WHDR::CLRS` - number of colors in the current palette (often the same
+  * `GIF_WHDR::xdim` - global GIF width, [0; 65535]
+  * `GIF_WHDR::ydim` - global GIF height, [0; 65535]
+  * `GIF_WHDR::clrs` - number of colors in the current palette (often the same
                        for all frames), {2; 4; 8; 16; 32; 64; 128; 256}
-  * `GIF_WHDR::BKGD` - 0-based background color index for the current palette
-  * `GIF_WHDR::TRAN` - 0-based transparent color index for the current palette
+  * `GIF_WHDR::bkgd` - 0-based background color index for the current palette
+  * `GIF_WHDR::tran` - 0-based transparent color index for the current palette
                        (or -1 when transparency is disabled)
-  * `GIF_WHDR::INTR` - boolean flag indicating whether the current frame is
+  * `GIF_WHDR::intr` - boolean flag indicating whether the current frame is
                        interlaced; deinterlacing it is up to the caller (see
                        the example below)
-  * `GIF_WHDR::MODE` - next frame (SIC next, not current) blending mode:
+  * `GIF_WHDR::mode` - next frame (SIC next, not current) blending mode:
                        [`GIF_NONE`:] no blending, mainly used in single-frame
                        GIFs; [`GIF_CURR`:] leave the current frame as is;
                        [`GIF_BKGD`:] restore the background color in the
                        boundaries of the current frame; [`GIF_PREV`:] restore
                        the frame that was replaced by the current one
-  * `GIF_WHDR::FRXD` - current frame width, [0; 65535]
-  * `GIF_WHDR::FRYD` - current frame height, [0; 65535]
-  * `GIF_WHDR::FRXO` - current frame horizontal offset, [0; 65535]
-  * `GIF_WHDR::FRYO` - current frame vertical offset, [0; 65535]
-  * `GIF_WHDR::TIME` - next frame delay in GIF time units (1 unit = 10 msec),
+  * `GIF_WHDR::frxd` - current frame width, [0; 65535]
+  * `GIF_WHDR::fryd` - current frame height, [0; 65535]
+  * `GIF_WHDR::frxo` - current frame horizontal offset, [0; 65535]
+  * `GIF_WHDR::fryo` - current frame vertical offset, [0; 65535]
+  * `GIF_WHDR::time` - next frame delay in GIF time units (1 unit = 10 msec),
                        [0; 65535]
-  * `GIF_WHDR::IFRM` - 0-based index of the current frame
-  * `GIF_WHDR::NFRM` - total frame count, negative if the GIF data supplied
+  * `GIF_WHDR::ifrm` - 0-based index of the current frame
+  * `GIF_WHDR::nfrm` - total frame count, negative if the GIF data supplied
                        is incomplete
-  * `GIF_WHDR::BPTR` - [frame writer:] pixel indices for the current frame;
+  * `GIF_WHDR::bptr` - [frame writer:] pixel indices for the current frame;
                        [metadata callback:] app metadata header (8+3 bytes)
                        followed by a GIF chunk (1 byte designating length L,
                        then L bytes of metadata, and so forth; L = 0 means
                        end of chunk)
-  * `GIF_WHDR::CPAL` - the current palette; contains `GIF_RGBX` values (`R`
+  * `GIF_WHDR::cpal` - the current palette; contains `GIF_RGBX` values (`R`
                        for the red channel, `G` for green and `B` for blue,
                        all three values are `uint8_t`).
 
@@ -74,11 +74,13 @@ proxy that is discarded after every call):
 6. number of frames to skip before executing the callback; useful to resume
    loading the partial file
 
-Partial GIFs are also supported, but only at a frame-by-frame granularity.
-For example, if the file ends in the middle of the fifth frame, no attempt
-would be made to recover the upper half, and the resulting animation will
-only contain 4 frames. When more data is available, the loader might be called
-again, this time with skip parameter equalling 4 to skip those 4 frames.
+Partial GIFs are also supported, but only at a granularity of one frame. For
+example, if the file ends in the middle of the fifth frame, no attempt would
+be made to recover the upper half, and the resulting animation will only
+contain 4 frames. When more data is available, the loader might be called
+again, this time with the `skip` parameter equalling 4 to skip those 4 frames.
+Note that the metadata callback is not affected by `skip`, and gets called
+again every time the frames between which it was written are skipped.
 
 `gif_load` is endian-aware. To check if the target machine is big-endian,
 refer to the `GIF_BIGE` compile-time boolean macro. Although GIF data is
