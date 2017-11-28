@@ -299,6 +299,8 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
             whdr.cpal = (GIF_RGBX*)(ghdr + 1);
             whdr.clrs = _GIF_LoadFrameHdr(&buff, &size, sizeof(*fhdr),
                                            ghdr->flgs, fhdr->flgs, &whdr.cpal);
+            whdr.mode = (fgch && !(fgch->flgs & 0x10))?
+                        (fgch->flgs & 0x0C) >> 2 : GIF_NONE;
             if (++whdr.ifrm >= skip) {
                 if ((whdr.clrs <= 0)
                 ||  (_GIF_LoadFrame(&buff, &size, whdr.bptr) < 0))
@@ -310,8 +312,6 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
                     gwfr(anim, &wtmp); /** passing the frame to the caller **/
                 }
             }
-            whdr.mode = (fgch && !(fgch->flgs & 0x10))?
-                        (fgch->flgs & 0x0C) >> 2 : GIF_NONE;
             if ((whdr.ifrm >= skip) && (size > 0))
                 continue;
         }
