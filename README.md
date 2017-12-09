@@ -59,9 +59,9 @@ proxy that is discarded after every call):
                        followed by a GIF chunk (1 byte designating length L,
                        then L bytes of metadata, and so forth; L = 0 means
                        end of chunk)
-  * `GIF_WHDR::cpal` - the current palette; contains `GIF_RGBX` values (`R`
-                       for the red channel, `G` for green and `B` for blue,
-                       all three values are `uint8_t`).
+  * `GIF_WHDR::cpal` - the current palette; contains 3 uint8_t values for
+                       each of the colors: `R` for the red channel, `G` for
+                       green and `B` for blue
 
 `GIF_Load()`, in its turn, needs 6:
 

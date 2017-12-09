@@ -42,10 +42,6 @@ extern "C" {
 #define _GIF_SWAP(h) ((GIF_BIGE)? ((uint16_t)(h << 8) | (h >> 8)) : h)
 
 #pragma pack(push, 1)
-typedef struct {                 /** ===== GIF RGB palette element: ===== **/
-    uint8_t R, G, B;             /** color values - red, green, blue      **/
-} GIF_RGBX;
-
 typedef struct {                 /** ======== frame writer info: ======== **/
     long xdim, ydim, clrs,       /** global dimensions, palette size      **/
          bkgd, tran,             /** background index, transparent index  **/
@@ -53,7 +49,9 @@ typedef struct {                 /** ======== frame writer info: ======== **/
          frxd, fryd, frxo, fryo, /** current frame dimensions and offset  **/
          time, ifrm, nfrm;       /** delay, frame number, frame count     **/
     uint8_t *bptr;               /** frame pixel indices or metadata      **/
-    GIF_RGBX *cpal;              /** current palette                      **/
+    struct {                     /** [==== GIF RGB palette element: ====] **/
+        uint8_t R, G, B;         /** [color values - red, green, blue   ] **/
+    } *cpal;                     /** current palette                      **/
 } GIF_WHDR;
 #pragma pack(pop)
 
@@ -75,17 +73,17 @@ static long _GIF_SkipChunk(uint8_t **buff, long *size) {
 }
 
 /** [ internal function, do not use ] **/
-static long _GIF_LoadFrameHdr(uint8_t **buff, long *size, long flen,
-                              long gflg, long fflg, GIF_RGBX **rpal) {
+static long _GIF_LoadFrameHdr(long gflg, uint8_t **buff, void **rpal,
+                              long fflg, long *size, long flen) {
     const uint8_t GIF_FPAL = 0x80; /** "palette is present" flag **/
     long rclr = 0;
 
     if (flen && (!(*buff += flen) || ((*size -= flen) <= 0)))
         return -2;
     if (flen && (fflg & GIF_FPAL)) { /** local palette has priority **/
-        *rpal = (GIF_RGBX*)*buff;
-        *buff += (rclr = 2 << (fflg & 7)) * (long)sizeof(**rpal);
-        if ((*size -= rclr * (long)sizeof(**rpal)) <= 0)
+        *rpal = *buff;
+        *buff += (rclr = 2 << (fflg & 7)) * 3L;
+        if ((*size -= rclr * 3L) <= 0) /** 3L: 3 uint8_t color channels **/
             return -1;
     }
     else if (gflg & GIF_FPAL) /** no local palette, using global! **/
@@ -262,7 +260,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
 
     buff = (uint8_t*)(ghdr + 1); /** skipping global header **/
     buff += (long)sizeof(*whdr.cpal) /** skipping global palette **/
-         * _GIF_LoadFrameHdr(0, 0, 0, ghdr->flgs, 0, 0);
+         * _GIF_LoadFrameHdr(ghdr->flgs, 0, 0, 0, 0, 0);
     if ((size -= buff - (uint8_t*)ghdr) <= 0)
         return 0;
 
@@ -272,8 +270,8 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
         blen--; /** frame counting loop **/
         if (desc == GIF_FHDM) {
             fhdr = (struct GIF_FHDR*)whdr.bptr;
-            if (_GIF_LoadFrameHdr(&whdr.bptr, &blen, sizeof(*fhdr),
-                                   ghdr->flgs, fhdr->flgs, &whdr.cpal) <= 0)
+            if (_GIF_LoadFrameHdr(ghdr->flgs, &whdr.bptr,(void**)&whdr.cpal,
+                                  fhdr->flgs, &blen, sizeof(*fhdr)) <= 0)
                 break;
             whdr.ifrm++;
         }
@@ -296,9 +294,9 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
             whdr.frxo = _GIF_SWAP(fhdr->xoff);
             whdr.fryo = _GIF_SWAP(fhdr->yoff);
             whdr.intr = !!(fhdr->flgs & GIF_FINT);
-            whdr.cpal = (GIF_RGBX*)(ghdr + 1);
-            whdr.clrs = _GIF_LoadFrameHdr(&buff, &size, sizeof(*fhdr),
-                                           ghdr->flgs, fhdr->flgs, &whdr.cpal);
+            *((void**)&whdr.cpal) = (void*)(ghdr + 1);
+            whdr.clrs = _GIF_LoadFrameHdr(ghdr->flgs, &buff,(void**)&whdr.cpal,
+                                          fhdr->flgs, &size, sizeof(*fhdr));
             whdr.mode = (fgch && !(fgch->flgs & 0x10))?
                         (fgch->flgs & 0x0C) >> 2 : GIF_NONE;
             if (++whdr.ifrm >= skip) {
