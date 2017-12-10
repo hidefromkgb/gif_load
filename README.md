@@ -59,7 +59,7 @@ proxy that is discarded after every call):
                        followed by a GIF chunk (1 byte designating length L,
                        then L bytes of metadata, and so forth; L = 0 means
                        end of chunk)
-  * `GIF_WHDR::cpal` - the current palette; contains 3 uint8_t values for
+  * `GIF_WHDR::cpal` - the current palette; contains 3 `uint8_t` values for
                        each of the colors: `R` for the red channel, `G` for
                        green and `B` for blue
 
@@ -89,7 +89,8 @@ fields of `GIF_WHDR` have correct byte order regardless of the endianness of
 the target machine. Most other data, e.g. pixel indices of a frame, consists
 of single bytes and does not require swapping. One notable exception is GIF
 application metadata which is passed as the raw chunk of bytes, and then it\`s
-the caller\`s job to parse it and decide whether to decode and how to do that.
+the callback\`s job to parse it and decide whether to decode and how to do
+that.
 
 
 
