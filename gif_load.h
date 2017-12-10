@@ -327,7 +327,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
     }
     whdr.bptr -= GIF_BLEN;
     GIF_MGET(whdr.bptr, ((unsigned long)blen), 0);
-    return (whdr.nfrm < 0)? -whdr.ifrm - 1 + skip : whdr.ifrm + 1;
+    return (whdr.nfrm < 0)? (skip - whdr.ifrm - 1) : (whdr.ifrm + 1);
 }
 
 #undef _GIF_SWAP
