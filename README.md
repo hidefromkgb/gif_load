@@ -56,8 +56,14 @@ proxy that is discarded after every call):
   * `GIF_WHDR::fryd` - current frame height, [0; 65535]
   * `GIF_WHDR::frxo` - current frame horizontal offset, [0; 65535]
   * `GIF_WHDR::fryo` - current frame vertical offset, [0; 65535]
-  * `GIF_WHDR::time` - next frame delay in GIF time units (1 unit = 10 msec),
-                       [0; 65535]
+  * `GIF_WHDR::time` - next frame delay in GIF time units (1 unit = 10 msec);
+                       negative values are possible here, they mean that the
+                       frame requires user input to advance, and the actual
+                       delay equals –(`time` + 1) GIF time units: zero delay
+                       + user input = wait for input indefinitely, nonzero
+                       delay + user input = wait for either input or timeout
+                       (whichever comes first); *N.B.:* user input requests
+                       can be safely ignored, disregarding the GIF standard
   * `GIF_WHDR::ifrm` - 0-based index of the current frame
   * `GIF_WHDR::nfrm` - total frame count, negative if the GIF data supplied
                        is incomplete
@@ -72,7 +78,7 @@ proxy that is discarded after every call):
                        to be the same across frames if and only if the same
                        palette is used for those frames
 
-`GIF_Load()`, in its turn, needs 6:
+`GIF_Load()`, in its turn, needs 6 parameters:
 
 1. a pointer to GIF data in RAM
 2. GIF data size; may be larger than the actual data if the GIF has a proper
