@@ -20,8 +20,9 @@ structure of any caller-defined format. This frame writer callback will be
 executed once every frame.
 
 Aditionally, it accepts a second callback used to process GIF
-application-specific extensions, i.e. metadata; in the vast majority of
-GIFs no such extensions are present, so this callback is optional.
+[application-specific extensions](https://stackoverflow.com/a/28486261/7019311),
+i.e. metadata; in the vast majority of GIFs no such extensions are present, so
+this callback is optional.
 
 Both frame writer callback and metadata callback need 2 parameters:
 
@@ -37,14 +38,20 @@ proxy that is discarded after every call):
   * `GIF_WHDR::tran` - 0-based transparent color index for the current palette
                        (or -1 when transparency is disabled)
   * `GIF_WHDR::intr` - boolean flag indicating whether the current frame is
-                       interlaced; deinterlacing it is up to the caller (see
-                       the example below)
+                  [interlaced](https://en.wikipedia.org/wiki/GIF#Interlacing);
+                       deinterlacing it is up to the caller (see the example
+                       below)
   * `GIF_WHDR::mode` - next frame (SIC next, not current) blending mode:
                        [`GIF_NONE`:] no blending, mainly used in single-frame
-                       GIFs; [`GIF_CURR`:] leave the current frame as is;
+                       GIFs, functionally equivalent to `GIF_CURR`;
+                       [`GIF_CURR`:] leave the current image state as is;
                        [`GIF_BKGD`:] restore the background color in the
                        boundaries of the current frame; [`GIF_PREV`:] restore
-                       the frame that was replaced by the current one
+                       the image state that used to be before it was blended
+                       with the current frame; *N.B.:* if right before a
+                       `GIF_PREV` frame came a `GIF_BKGD` one, the state to
+                       be restored is before a certain part of the resulting
+                       image was filled with the background color, not after!
   * `GIF_WHDR::frxd` - current frame width, [0; 65535]
   * `GIF_WHDR::fryd` - current frame height, [0; 65535]
   * `GIF_WHDR::frxo` - current frame horizontal offset, [0; 65535]
@@ -59,9 +66,11 @@ proxy that is discarded after every call):
                        followed by a GIF chunk (1 byte designating length L,
                        then L bytes of metadata, and so forth; L = 0 means
                        end of chunk)
-  * `GIF_WHDR::cpal` - the current palette; contains 3 `uint8_t` values for
+  * `GIF_WHDR::cpal` - the current palette containing 3 `uint8_t` values for
                        each of the colors: `R` for the red channel, `G` for
-                       green and `B` for blue
+                       green and `B` for blue; this pointer is guaranteed
+                       to be the same across frames if and only if the same
+                       palette is used for those frames
 
 `GIF_Load()`, in its turn, needs 6:
 
@@ -80,7 +89,8 @@ be made to recover the upper half, and the resulting animation will only
 contain 4 frames. When more data is available, the loader might be called
 again, this time with the `skip` parameter equalling 4 to skip those 4 frames.
 Note that the metadata callback is not affected by `skip`, and gets called
-again every time the frames between which it was written are skipped.
+again every time the frames between which the metadata was written are
+skipped.
 
 `gif_load` is endian-aware. To check if the target machine is big-endian,
 refer to the `GIF_BIGE` compile-time boolean macro. Although GIF data is
