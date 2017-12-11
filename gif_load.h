@@ -131,7 +131,7 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
             load = (GIF_H)(load >> -bszc);
             bszc += 8 * ((bseq < GIF_HLEN)? bseq : GIF_HLEN);
             while (bszc >= 0) {
-                if (((curr &= mask) & (GIF_U)~1) == (GIF_U)(1 << ctsz)) {
+                if (((curr &= mask) & ~1UL) == (GIF_U)(1 << ctsz)) {
                     if (curr & 1) { /** end-of-data code (ED). **/
                         *buff += bseq; /** no end-of-stream mark after ED **/
                         (*size)--;     /**    |   ,-- decoding successful **/
@@ -255,12 +255,12 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
         the data has sufficient size and frameskip value is non-negative **/
     if (!ghdr || (size <= (long)sizeof(*ghdr)) || (*(buff = ghdr->head) != 71)
     || (buff[1] != 73) || (buff[2] != 70) || (buff[3] != 56) || (skip < 0)
-    || ((buff[4] != 55) && (buff[4] != 57)) || (buff[5] != 97))
+    || ((buff[4] != 55) && (buff[4] != 57)) || (buff[5] != 97) || !gwfr)
         return 0;
 
-    buff = (uint8_t*)(ghdr + 1); /** skipping global header **/
-    buff += (long)sizeof(*whdr.cpal) /** skipping global palette **/
-         * _GIF_LoadFrameHdr(ghdr->flgs, 0, 0, 0, 0, 0);
+    buff = (uint8_t*)(ghdr + 1) /** skipping the master header... **/
+         + _GIF_LoadFrameHdr(ghdr->flgs, 0, 0, 0, 0, 0)
+         * (long)sizeof(*whdr.cpal); /** ...and the global palette, if any **/
     if ((size -= buff - (uint8_t*)ghdr) <= 0)
         return 0;
 
@@ -294,7 +294,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
             whdr.frxo = _GIF_SWAP(fhdr->xoff);
             whdr.fryo = _GIF_SWAP(fhdr->yoff);
             whdr.intr = !!(fhdr->flgs & GIF_FINT);
-            *((void**)&whdr.cpal) = (void*)(ghdr + 1);
+            *(void**)&whdr.cpal = (void*)(ghdr + 1);
             whdr.clrs = _GIF_LoadFrameHdr(ghdr->flgs, &buff,(void**)&whdr.cpal,
                                           fhdr->flgs, &size, sizeof(*fhdr));
             whdr.mode = (fgch && !(fgch->flgs & 0x10))?
