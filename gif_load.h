@@ -264,8 +264,9 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
 
     blen = size;
     whdr.bptr = buff;
-    whdr.xdim = whdr.frxd = _GIF_SWAP(ghdr->xdim);
-    whdr.ydim = whdr.fryd = _GIF_SWAP(ghdr->ydim);
+    whdr.bkgd = ghdr->bkgd;
+    whdr.xdim = _GIF_SWAP(ghdr->xdim);
+    whdr.ydim = _GIF_SWAP(ghdr->ydim);
     while ((desc = *whdr.bptr++) != GIF_EOFM) {
         blen--; /** frame counting loop **/
         if (desc == GIF_FHDM) {
@@ -282,10 +283,9 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
         if (!_GIF_SkipChunk(&whdr.bptr, &blen))
             break;
     }
-    whdr.bkgd = ghdr->bkgd;
-    whdr.nfrm = (desc == GIF_EOFM)? whdr.ifrm : -whdr.ifrm;
     blen = whdr.frxd * whdr.fryd * (long)sizeof(*whdr.bptr) + GIF_BLEN;
     GIF_MGET(whdr.bptr, ((unsigned long)blen), 1);
+    whdr.nfrm = (desc != GIF_EOFM)? -whdr.ifrm : whdr.ifrm;
     whdr.bptr += GIF_BLEN;
     whdr.ifrm = -1;
     while (skip < ((whdr.nfrm < 0)? -whdr.nfrm : whdr.nfrm)) {
