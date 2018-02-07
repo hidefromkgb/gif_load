@@ -281,6 +281,6 @@ def GIF_Save(file, fext):
 GIF_Save("insert_gif_name_here_without_extension", "png")
 ```
 
-The implementation shown here compiles to the GIF standard much better than
+The implementation shown here complies to the GIF standard much better than
 the one PIL has (as of 2018-02-07): for example, it preserves transparency
 and supports local frame palettes.
