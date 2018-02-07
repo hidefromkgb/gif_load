@@ -228,7 +228,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
                               PixelBits    bit 2-0   |Plt| = 2 * 2^PixelBits
                               **/
     } *fhdr;
-    struct GIF_FGCH {        /** = [EXT] FRAME GRAPHICS CONTROL HEADER: = **/
+    struct GIF_EGCH {        /** ==== [EXT] GRAPHICS CONTROL HEADER: ==== **/
         uint8_t flgs;        /** FLAGS:
                               [reserved]   bit 7-5   [undefined]
                               BlendMode    bit 4-2   000: not set; static GIF
@@ -243,7 +243,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
                               **/
         uint16_t time;       /** delay in GIF time units; 1 unit = 10 ms  **/
         uint8_t tran;        /** transparent color index                  **/
-    } *fgch = 0;
+    } *egch = 0;
     #pragma pack(pop)
     GIF_WHDR wtmp, whdr = {0};
     long desc, blen;
@@ -304,13 +304,13 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
                     whdr.fryd = _GIF_SWAP(fhdr->ydim);
                     whdr.frxo = _GIF_SWAP(fhdr->xoff);
                     whdr.fryo = _GIF_SWAP(fhdr->yoff);
-                    whdr.time = (fgch)? _GIF_SWAP(fgch->time) : 0;
-                    whdr.tran = (fgch && (fgch->flgs & 0x01))? fgch->tran : -1;
-                    whdr.time = (fgch && (fgch->flgs & 0x02))? -whdr.time - 1
+                    whdr.time = (egch)? _GIF_SWAP(egch->time) : 0;
+                    whdr.tran = (egch && (egch->flgs & 0x01))? egch->tran : -1;
+                    whdr.time = (egch && (egch->flgs & 0x02))? -whdr.time - 1
                                                              : whdr.time;
-                    whdr.mode = (fgch && !(fgch->flgs & 0x10))?
-                                (fgch->flgs & 0x0C) >> 2 : GIF_NONE;
-                    fgch = 0;
+                    whdr.mode = (egch && !(egch->flgs & 0x10))?
+                                (egch->flgs & 0x0C) >> 2 : GIF_NONE;
+                    egch = 0;
                     wtmp = whdr;
                     gwfr(anim, &wtmp); /** passing the frame to the caller **/
                 }
@@ -320,7 +320,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
         }
         else if (desc == GIF_EHDM) { /** found an extension **/
             if (*buff == GIF_FGCM) /** frame graphics control **/
-                fgch = (struct GIF_FGCH*)(buff + 1 + 1);
+                egch = (struct GIF_EGCH*)(buff + 1 + 1);
             else if ((*buff == GIF_AMDM) && amdf) { /** app metadata **/
                 wtmp = whdr;
                 wtmp.bptr = buff + 1 + 1; /** just passing the raw chunk **/

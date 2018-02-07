@@ -209,3 +209,78 @@ int main(int argc, char *argv[]) {
     return stat.uuid;
 }
 ```
+
+And this is an example of how to use `GIF_Load()` from Python. As for now only
+the Linux compilation string is available, but building it on Windows is also
+possible.
+
+First we need to build `gif_load.h` as a shared library:
+
+```bash
+rm gif_load.so 2>/dev/null
+gcc -pedantic -ansi -xc -s <(sed "s:static long GIF_Load(:extern long GIF_Load(:" gif_load.h) \
+    -o gif_load.so -shared -fPIC -Wl,--version-script=<(echo "{global:GIF_Load;local:*;};")
+```
+
+And now let\`s use it:
+
+```python
+from PIL import Image
+
+def GIF_Load(file):
+    from platform import system
+    from ctypes import string_at, Structure, c_long as cl, c_ubyte, \
+                       py_object, pointer, POINTER as PT, CFUNCTYPE, CDLL
+    class GIF_WHDR(Structure): _fields_ = \
+       [("xdim", cl), ("ydim", cl), ("clrs", cl), ("bkgd", cl),
+        ("tran", cl), ("intr", cl), ("mode", cl), ("frxd", cl), ("fryd", cl),
+        ("frxo", cl), ("fryo", cl), ("time", cl), ("ifrm", cl), ("nfrm", cl),
+        ("bptr", PT(c_ubyte)), ("cpal", PT(c_ubyte))]
+    def intr(y, x, w, base, tran): base.paste(tran.crop((0, y, x, y + 1)), w)
+    def skew(i, r): return r >> ((7 - (i & 2)) >> (1 + (i & 1)))
+    def WriteFunc(d, w):
+        cpal = string_at(w[0].cpal, w[0].clrs * 3)
+        list = d.contents.value
+        if (len(list) == 0):
+            list.append(Image.new("RGBA", (w[0].xdim, w[0].ydim)))
+        tail = len(list) - 1
+        base = Image.frombytes("L", (w[0].frxd, w[0].fryd),
+                               string_at(w[0].bptr, w[0].frxd * w[0].fryd))
+        if (w[0].intr != 0):
+            tran = base.copy()
+            [intr(skew(y, y) + (skew(y, w[0].fryd - 1) + 1, 0)[(y & 7) == 0],
+                  w[0].frxd, (0, y), base, tran) for y in range(w[0].fryd)]
+        tran = Image.eval(base, lambda indx: (255, 0)[indx == w[0].tran])
+        base.putpalette(cpal)
+        list[tail].paste(base, (w[0].frxo, w[0].fryo), tran)
+        list[tail].info = {"delay" : w[0].time}
+        if (w[0].ifrm != (w[0].nfrm - 1)):
+            list.append(list[max(0, tail - int(w[0].mode == 3))].copy())
+            if (w[0].mode == 2):
+                base = Image.new("L", (w[0].frxd, w[0].fryd), w[0].bkgd)
+                base.putpalette(cpal)
+                list[tail + 1].paste(base, (w[0].frxo, w[0].fryo))
+    try: file = open(file, "rb")
+    except IOError: return []
+    file.seek(0, 2)
+    size = file.tell()
+    file.seek(0, 0)
+    list = []
+    CDLL(("%s.so", "%s.dll")[system() == "Windows"] % "gif_load"). \
+    GIF_Load(file.read(), size,
+             CFUNCTYPE(None, PT(py_object), PT(GIF_WHDR))(WriteFunc),
+             None, pointer(py_object(list)), 0)
+    file.close()
+    return list
+
+def GIF_Save(file, fext):
+    list = GIF_Load("%s.gif" % file)
+    [pict.save("%s_f%d.%s" % (file, indx, fext))
+     for (indx, pict) in enumerate(list)]
+
+GIF_Save("insert_gif_name_here_without_extension", "png")
+```
+
+The implementation shown here compiles to the GIF standard much better than
+the one PIL has (as of 2018-02-07): for example, it preserves transparency
+and supports local frame palettes.
