@@ -97,49 +97,41 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
     typedef uint16_t GIF_H; GIF_H load, mask; /** bit accum and bitmask **/
     const long GIF_HLEN = sizeof(GIF_H); /** to rid the scope of sizeof **/
     const GIF_U GIF_CLEN = 1 << 12; /** code table length: 4096 items   **/
-    GIF_U iter, /** iterator used to inflate codes into index strings   **/
-          ctbl, /** last code table index (or greater, when > GIF_CLEN) **/
-          curr, /** current code from the code stream                   **/
-          prev; /** previous code from the code stream                  **/
-    long  ctsz, /** minimum LZW code table size, in bits                **/
-          ccsz, /** current code table size, in bits                    **/
-          bseq, /** block sequence loop counter                         **/
-          bszc; /** bit size counter                                    **/
-    uint32_t *code = (uint32_t*)bptr - GIF_CLEN;
+    GIF_U ctbl, /** last code table index (or greater, when > GIF_CLEN) **/
+          iter, /** iterator used to inflate codes into index strings   **/
+          prev, curr; /** codes from the stream: previous / current     **/
+    long  ctsz, ccsz, /** code table bit sizes: min LZW / current       **/
+          bseq, bszc; /** counters: block sequence / bit size           **/
+    uint32_t *code = (uint32_t*)bptr - GIF_CLEN; /** code table pointer **/
 
     /** preparing initial values **/
-    if (--(*size) <= GIF_HLEN) /** does the size suffice? **/
-        return -5; /** unexpected end of the data stream **/
-    mask = (GIF_H)((1 << (ccsz = (ctsz = *(*buff)++) + 1)) - 1);
-    if (!(bseq = *(*buff)++))
-        return -4; /** the data stream is empty **/
+    if ((--(*size) <= GIF_HLEN) || !*++(*buff))
+        return -4; /** unexpected end of the stream: insufficient size **/
+    mask = (GIF_H)((1 << (ccsz = (ctsz = *(*buff - 1)) + 1)) - 1);
     if ((ctsz < 2) || (ctsz > 8))
         return -3; /** min LZW size is out of its nominal [2; 8] bounds **/
-    if ((ctbl = (1UL << ctsz))
-    != ((curr = (GIF_U)mask & _GIF_SWAP(*(GIF_H*)*buff))))
-        return -2; /** initial code is not equal to minimum LZW size **/
-    for (bszc = -ccsz, prev = iter = 0; iter < ctbl; iter++)
+    if ((ctbl = (1UL << ctsz)) != (mask & _GIF_SWAP(*(GIF_H*)(*buff + 1))))
+        return -2; /** initial code is not equal to min LZW size **/
+    for (bszc = -ccsz, iter = prev = curr = 0; iter < ctbl; iter++)
         code[iter] = (uint32_t)(iter << 24); /** persistent table items **/
-
-    do { /** splitting the data stream into codes **/
-        if ((*size -= bseq + 1) <= 0)
-            return -5; /** unexpected end of the data stream **/
-        for (; bseq > 0; bseq -= GIF_HLEN, *buff += GIF_HLEN) {
-            load = (GIF_H)(_GIF_SWAP(*(GIF_H*)*buff)
-                 & ((bseq < GIF_HLEN)? ((1U << (8 * bseq)) - 1U) : ~0U));
-            curr |= (GIF_U)(load << (ccsz + bszc));
-            load = (GIF_H)(load >> -bszc);
-            bszc += 8 * ((bseq < GIF_HLEN)? bseq : GIF_HLEN);
-            while (bszc >= 0) {
+    /** getting codes from stream (--size makes up for end-of-stream mark) **/
+    for (--(*size); (bseq = *(*buff)++); *buff += bseq) {
+        if ((*size -= bseq + 1) < 0)
+            return -4; /** unexpected end of the stream: insufficient size **/
+        for (; bseq > 0; bseq -= GIF_HLEN, *buff += GIF_HLEN)
+            for (load = (GIF_H)(_GIF_SWAP(*(GIF_H*)*buff)
+                      & ((bseq < GIF_HLEN)? ((1U << (8 * bseq)) - 1U) : ~0U)),
+                 curr |= (GIF_U)(load << (ccsz + bszc)),
+                 load = (GIF_H)(load >> -bszc),
+                 bszc += 8 * ((bseq < GIF_HLEN)? bseq : GIF_HLEN);
+                 bszc >= 0; bszc -= ccsz, prev = curr, curr = load,
+                                          load = (GIF_H)(load >> ccsz))
                 if (((curr &= mask) & ~1UL) == (GIF_U)(1 << ctsz)) {
-                    if (curr & 1) { /** end-of-data code (ED). **/
-                        *buff += bseq; /** no end-of-stream mark after ED **/
-                        (*size)--;     /**    |   ,-- decoding successful **/
-                        return (*(*buff)++)? -1 : 1;
-                    }
-                    ctbl = (GIF_U)(1 << ctsz); /** table drop code (TD). **/
-                    mask = (GIF_H)((1 << (ccsz = ctsz + 1)) - 1);
-                }
+                    if (curr & 1) /** end-of-data code (ED). **/
+                        return (*((*buff += bseq + 1) - 1))? -1 : 1; /** < **/
+                    ctbl = (GIF_U)(1 << ctsz); /** table drop code (TD). | **/
+                    mask = (GIF_H)((1 << (ccsz = ctsz + 1)) - 1);    /** | **/
+                } /** [ -1: no end-of-stream mark after ED; 1: decoded ]-' **/
                 else { /** single-pixel (SP) or multi-pixel (MP) code. **/
                     /** ctbl may exceed GIF_CLEN: it can`t overflow even **/
                     /** if the frame`s 65535x65535 (max), being unsigned **/
@@ -147,36 +139,21 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
                         if ((ctbl == mask) && (ctbl < GIF_CLEN - 1)) {
                             mask = (GIF_H)(mask + mask + 1);
                             ccsz++; /** yes; extending **/
-                        }
-                        /** prev = TD? => curr < ctbl = prev **/
+                        } /** prev = TD? => curr < ctbl = prev **/
                         code[ctbl] = (uint32_t)prev + 0x1000
                                    + (code[prev] & 0xFFF000);
-                    }
-                    /** appending pixels decoded from SP/MP to the frame **/
+                    } /** appending SP / MP decoded pixels to the frame **/
                     iter = (curr >= ctbl)? prev : curr;
                     bptr += (prev = (code[iter] >> 12) & 0xFFF);
-                    while (!0) {
-                        *bptr-- = (uint8_t)(code[iter] >> 24);
-                        if (!(code[iter] & 0xFFF000))
-                            break;
-                        iter = code[iter] & 0xFFF;
-                    }
+                    do *bptr-- = (uint8_t)((iter = code[iter & 0xFFF]) >> 24);
+                    while (iter & 0xFFF000);
                     bptr += prev + 2;
                     if (curr >= ctbl)
-                        *bptr++ = (uint8_t)(code[iter] >> 24);
-
+                        *bptr++ = (uint8_t)(iter >> 24);
                     if (ctbl < GIF_CLEN) /** appending the code table **/
-                        code[ctbl] |= code[iter] & 0xFF000000;
+                        code[ctbl] |= iter & 0xFF000000;
                 }
-                prev = curr;
-                curr = load;
-                bszc -= ccsz;
-                load = (GIF_H)(load >> ccsz);
-            }
-        }
-        *buff += bseq;
-    } while ((bseq = *(*buff)++));
-    (*size)--;
+    }
     return 0; /** no ED code before end-of-stream mark; RECOVERABLE ERROR **/
 }
 
