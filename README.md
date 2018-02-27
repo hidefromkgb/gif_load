@@ -270,7 +270,7 @@ def GIF_Load(file):
     size = file.tell()
     file.seek(0, 0)
     list = []
-    CDLL(("%s.so", "%s.dll")[system() == "Windows"] % "gif_load"). \
+    CDLL(("%s.so", "%s.dll")[system() == "Windows"] % "./gif_load"). \
     GIF_Load(file.read(), size,
              CFUNCTYPE(None, PT(py_object), PT(GIF_WHDR))(WriteFunc),
              None, pointer(py_object(list)), 0)
