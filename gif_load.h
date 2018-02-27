@@ -239,13 +239,10 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
     if ((size -= buff - (uint8_t*)ghdr) <= 0)
         return 0;
 
-    blen = size;
-    whdr.bptr = buff;
-    whdr.bkgd = ghdr->bkgd;
     whdr.xdim = _GIF_SWAP(ghdr->xdim);
     whdr.ydim = _GIF_SWAP(ghdr->ydim);
-    while ((desc = *whdr.bptr++) != GIF_EOFM) {
-        blen--; /** frame counting loop **/
+    for (whdr.bptr = buff, whdr.bkgd = ghdr->bkgd, blen = --size;
+        (desc = *whdr.bptr++) != GIF_EOFM; blen--) { /** frame counting **/
         if (desc == GIF_FHDM) {
             fhdr = (struct GIF_FHDR*)whdr.bptr;
             if (_GIF_LoadFrameHdr(ghdr->flgs, &whdr.bptr,(void**)&whdr.cpal,
@@ -263,10 +260,8 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
     blen = whdr.frxd * whdr.fryd * (long)sizeof(*whdr.bptr) + GIF_BLEN;
     GIF_MGET(whdr.bptr, ((unsigned long)blen), 1);
     whdr.nfrm = (desc != GIF_EOFM)? -whdr.ifrm : whdr.ifrm;
-    whdr.bptr += GIF_BLEN;
-    whdr.ifrm = -1;
-    while (skip < ((whdr.nfrm < 0)? -whdr.nfrm : whdr.nfrm)) {
-        size--; /** frame extraction loop **/
+    for (whdr.bptr += GIF_BLEN, whdr.ifrm = -1; /** frame extraction **/
+         skip < ((whdr.nfrm < 0)? -whdr.nfrm : whdr.nfrm); size--) {
         if ((desc = *buff++) == GIF_FHDM) { /** found a frame **/
             whdr.intr = !!((fhdr = (struct GIF_FHDR*)buff)->flgs & 0x40);
             *(void**)&whdr.cpal = (void*)(ghdr + 1); /** interlaced? -^ **/
