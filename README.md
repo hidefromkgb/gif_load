@@ -128,7 +128,7 @@ GIF file into a 32-bit uncompressed TGA:
 #else
     #include <unistd.h>
 #endif
-#ifndef _WIN32
+#ifndef O_BINARY
     #define O_BINARY 0
 #endif
 
