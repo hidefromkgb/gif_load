@@ -74,8 +74,8 @@ static long _GIF_SkipChunk(uint8_t **buff, long *size) {
 }
 
 /** [ internal function, do not use ] **/
-static long _GIF_LoadFrameHdr(long gflg, uint8_t **buff, void **rpal,
-                              long fflg, long *size, long flen) {
+static long _GIF_LoadFrameH(unsigned gflg, uint8_t **buff, void **rpal,
+                            unsigned fflg, long *size, long flen) {
     const uint8_t GIF_FPAL = 0x80; /** "palette is present" flag **/
     long rclr = 0;
 
@@ -152,7 +152,7 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
                     if (curr >= ctbl)
                         *bptr++ = (uint8_t)(iter >> 24);
                     if (ctbl < GIF_CLEN) /** appending the code table **/
-                        code[ctbl] |= iter & 0xFF000000;
+                        code[ctbl] |= (uint32_t)iter & 0xFF000000;
                 }
     }
     return 0; /** no ED code before end-of-stream mark; RECOVERABLE ERROR **/
@@ -235,7 +235,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
         return 0;
 
     buff = (uint8_t*)(ghdr + 1) /** skipping the master header... **/
-         + _GIF_LoadFrameHdr(ghdr->flgs, 0, 0, 0, 0, 0)
+         + _GIF_LoadFrameH(ghdr->flgs, 0, 0, 0, 0, 0L)
          * (long)sizeof(*whdr.cpal); /** ...and the global palette, if any **/
     if ((size -= buff - (uint8_t*)ghdr) <= 0)
         return 0;
@@ -246,8 +246,8 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
         (desc = *whdr.bptr++) != GIF_EOFM; blen--) { /** frame counting **/
         if (desc == GIF_FHDM) {
             fhdr = (struct GIF_FHDR*)whdr.bptr;
-            if (_GIF_LoadFrameHdr(ghdr->flgs, &whdr.bptr,(void**)&whdr.cpal,
-                                  fhdr->flgs, &blen, sizeof(*fhdr)) <= 0)
+            if (_GIF_LoadFrameH(ghdr->flgs, &whdr.bptr, (void**)&whdr.cpal,
+                                fhdr->flgs, &blen, sizeof(*fhdr)) <= 0)
                 break;
             whdr.frxo = _GIF_SWAP(fhdr->xdim);
             whdr.fryo = _GIF_SWAP(fhdr->ydim);
@@ -266,8 +266,8 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
         if ((desc = *buff++) == GIF_FHDM) { /** found a frame **/
             whdr.intr = !!((fhdr = (struct GIF_FHDR*)buff)->flgs & 0x40);
             *(void**)&whdr.cpal = (void*)(ghdr + 1); /** interlaced? -^ **/
-            whdr.clrs = _GIF_LoadFrameHdr(ghdr->flgs, &buff,(void**)&whdr.cpal,
-                                          fhdr->flgs, &size, sizeof(*fhdr));
+            whdr.clrs = _GIF_LoadFrameH(ghdr->flgs, &buff, (void**)&whdr.cpal,
+                                        fhdr->flgs, &size, sizeof(*fhdr));
             if (++whdr.ifrm >= skip) {
                 if ((whdr.clrs <= 0)
                 ||  (_GIF_LoadFrame(&buff, &size, whdr.bptr) < 0))

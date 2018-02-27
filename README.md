@@ -198,17 +198,17 @@ int main(int argc, char *argv[]) {
             return 1;
         stat.size = (unsigned long)lseek(stat.uuid, 0UL, 2 /** SEEK_END **/);
         lseek(stat.uuid, 0UL, 0 /** SEEK_SET **/);
-        read(stat.uuid, stat.data = malloc(stat.size), stat.size);
+        read(stat.uuid, stat.data = realloc(0, stat.size), stat.size);
         close(stat.uuid);
         unlink(argv[argc - 1]);
         stat.uuid = open(argv[argc - 1], O_CREAT | O_WRONLY | O_BINARY, 0644);
         if (stat.uuid > 0) {
             GIF_Load(stat.data, (long)stat.size, Frame, 0, (void*)&stat, 0L);
-            free(stat.draw);
+            stat.draw = realloc(stat.draw, 0L);
             close(stat.uuid);
             stat.uuid = 0;
         }
-        free(stat.data);
+        stat.data = realloc(stat.data, 0L);
     }
     return stat.uuid;
 }
