@@ -37,8 +37,9 @@ extern "C" {
     #include <stdlib.h>
     #define GIF_MGET(m, s, c) m = (uint8_t*)realloc((c)? 0 : m, (c)? s : 0UL)
 #endif
-
-#define GIF_BIGE (*(const uint16_t*)"\x7F\x01" == 0x7F01)
+#ifndef GIF_BIGE
+    #define GIF_BIGE 0
+#endif
 #define _GIF_SWAP(h) ((GIF_BIGE)? ((uint16_t)(h << 8) | (h >> 8)) : h)
 
 #pragma pack(push, 1)

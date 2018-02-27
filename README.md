@@ -98,8 +98,12 @@ Note that the metadata callback is not affected by `skip`, and gets called
 again every time the frames between which the metadata was written are
 skipped.
 
-`gif_load` is endian-aware. To check if the target machine is big-endian,
-refer to the `GIF_BIGE` compile-time boolean macro. Although GIF data is
+`gif_load` is endian-aware. If the target machine can be big-endian, the user
+has to determine that manually and add `#define GIF_BIGE 1` to the source
+prior to the header being included if that\`s the case, or otherwise define
+the endianness to be used (0 = little, 1 = big), e.g. by declaring a helper
+function and setting `GIF_BIGE` to expand into its call, or by passing it as a
+compiler parameter (e.g. `-DGIF_BIGE=1` for GCC / Clang). Although GIF data is
 little-endian, all multibyte integers passed to the user through `long`-typed
 fields of `GIF_WHDR` have correct byte order regardless of the endianness of
 the target machine. Most other data, e.g. pixel indices of a frame, consists
