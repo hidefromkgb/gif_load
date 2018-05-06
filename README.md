@@ -75,8 +75,10 @@ proxy that is discarded after every call):
   * `GIF_WHDR::cpal` - the current palette containing 3 `uint8_t` values for
                        each of the colors: `R` for the red channel, `G` for
                        green and `B` for blue; this pointer is guaranteed
-                       to be the same across frames if and only if the same
-                       palette is used for those frames
+                       to be the same across frames if and only if the global
+                       palette is used for those frames (local palettes are
+                       strictly frame-specific, even when they contain the
+                       same number of identical colors in identical order)
 
 `GIF_Load()`, in its turn, needs 6 parameters:
 

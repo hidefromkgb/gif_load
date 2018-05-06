@@ -168,18 +168,18 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
     DATA: raw data chunk, may be partial
     SIZE: size of the data chunk that`s currently present
     GWFR: frame writer function, MANDATORY
-    AMDF: metadata reader function, set to 0 if not needed
+    EAMF: metadata reader function, set to 0 if not needed
     ANIM: implementation-specific data (e.g. a structure or a pointer to it)
     SKIP: number of frames to skip before resuming
  **/
 static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
-                     void (*amdf)(void*, GIF_WHDR*), void *anim, long skip) {
+                     void (*eamf)(void*, GIF_WHDR*), void *anim, long skip) {
     const long    GIF_BLEN = (1 << 12) * sizeof(uint32_t);
     const uint8_t GIF_EHDM = 0x21, /** extension header mark              **/
                   GIF_FHDM = 0x2C, /** frame header mark                  **/
                   GIF_EOFM = 0x3B, /** end-of-file mark                   **/
-                  GIF_FGCM = 0xF9, /** frame graphics control mark        **/
-                  GIF_AMDM = 0xFF; /** application metadata mark          **/
+                  GIF_EGCM = 0xF9, /** extension: graphics control mark   **/
+                  GIF_EAMM = 0xFF; /** extension: app metadata mark       **/
     #pragma pack(push, 1)
     struct GIF_GHDR {        /** ========== GIF MASTER HEADER: ========== **/
         uint8_t head[6];     /** 'GIF87a' / 'GIF89a' header signature     **/
@@ -292,12 +292,12 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
                 continue;
         }
         else if (desc == GIF_EHDM) { /** found an extension **/
-            if (*buff == GIF_FGCM) /** frame graphics control **/
+            if (*buff == GIF_EGCM) /** graphics control ext. **/
                 egch = (struct GIF_EGCH*)(buff + 1 + 1);
-            else if ((*buff == GIF_AMDM) && amdf) { /** app metadata **/
+            else if ((*buff == GIF_EAMM) && eamf) { /** app metadata ext. **/
                 wtmp = whdr;
                 wtmp.bptr = buff + 1 + 1; /** just passing the raw chunk **/
-                amdf(anim, &wtmp);
+                eamf(anim, &wtmp);
             }
         }
         if ((desc == GIF_EOFM) || !_GIF_SkipChunk(&buff, &size))
