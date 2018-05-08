@@ -239,7 +239,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
     whdr.ydim = _GIF_SWAP(ghdr->ydim);
     for (whdr.bptr = buff, whdr.bkgd = ghdr->bkgd, blen = --size;
        ((desc = *whdr.bptr++) != GIF_EOFM) && (blen >= 0); /** sic: '>= 0' **/
-         blen = _GIF_SkipChunk(&whdr.bptr, blen) - 1) /** frame counting **/
+         blen = _GIF_SkipChunk(&whdr.bptr, blen) - 1) /** count all frames **/
         if (desc == GIF_FHDM) {
             fhdr = (struct GIF_FHDR*)whdr.bptr;
             if (_GIF_LoadFrameH(ghdr->flgs, &whdr.bptr, (void**)&whdr.cpal,
@@ -254,7 +254,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
     blen = whdr.frxd * whdr.fryd * (long)sizeof(*whdr.bptr) + GIF_BLEN;
     GIF_MGET(whdr.bptr, ((unsigned long)blen), 1);
     whdr.nfrm = (desc != GIF_EOFM)? -whdr.ifrm : whdr.ifrm;
-    for (whdr.bptr += GIF_BLEN, whdr.ifrm = -1; /** frame reading **/
+    for (whdr.bptr += GIF_BLEN, whdr.ifrm = -1; /** load all frames **/
         (skip < (whdr.nfrm < 0)? -whdr.nfrm : whdr.nfrm) && (size >= 0);
          size = (desc != GIF_EOFM)? ((desc != GIF_FHDM) || (skip > whdr.ifrm))?
                 _GIF_SkipChunk(&buff, size) - 1 : size - 1 : -1)
@@ -263,25 +263,23 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
             *(void**)&whdr.cpal = (void*)(ghdr + 1); /** interlaced? -^ **/
             whdr.clrs = _GIF_LoadFrameH(ghdr->flgs, &buff, (void**)&whdr.cpal,
                                         fhdr->flgs, &size, sizeof(*fhdr));
-            if (skip <= ++whdr.ifrm) {
-                if ((whdr.clrs <= 0)
-                ||  (_GIF_LoadFrame(&buff, &size, whdr.bptr) < 0))
-                    size = -whdr.ifrm-- - 1; /** failed to read the frame **/
-                else {
-                    whdr.frxd = _GIF_SWAP(fhdr->xdim);
-                    whdr.fryd = _GIF_SWAP(fhdr->ydim);
-                    whdr.frxo = _GIF_SWAP(fhdr->xoff);
-                    whdr.fryo = _GIF_SWAP(fhdr->yoff);
-                    whdr.time = (egch)? _GIF_SWAP(egch->time) : 0;
-                    whdr.tran = (egch && (egch->flgs & 0x01))? egch->tran : -1;
-                    whdr.time = (egch && (egch->flgs & 0x02))? -whdr.time - 1
-                                                             : whdr.time;
-                    whdr.mode = (egch && !(egch->flgs & 0x10))?
-                                (egch->flgs & 0x0C) >> 2 : GIF_NONE;
-                    egch = 0;
-                    wtmp = whdr;
-                    gwfr(anim, &wtmp); /** passing the frame to the caller **/
-                }
+            if ((skip <= ++whdr.ifrm) && ((whdr.clrs <= 0)
+            ||  (_GIF_LoadFrame(&buff, &size, whdr.bptr) < 0)))
+                size = -(whdr.ifrm--) - 1; /** failed to load the frame **/
+            else if (skip <= whdr.ifrm) {
+                whdr.frxd = _GIF_SWAP(fhdr->xdim);
+                whdr.fryd = _GIF_SWAP(fhdr->ydim);
+                whdr.frxo = _GIF_SWAP(fhdr->xoff);
+                whdr.fryo = _GIF_SWAP(fhdr->yoff);
+                whdr.time = (egch)? _GIF_SWAP(egch->time) : 0;
+                whdr.tran = (egch && (egch->flgs & 0x01))? egch->tran : -1;
+                whdr.time = (egch && (egch->flgs & 0x02))? -whdr.time - 1
+                                                         : whdr.time;
+                whdr.mode = (egch && !(egch->flgs & 0x10))?
+                            (egch->flgs & 0x0C) >> 2 : GIF_NONE;
+                egch = 0;
+                wtmp = whdr;
+                gwfr(anim, &wtmp); /** passing the frame to the caller **/
             }
         }
         else if (desc == GIF_EHDM) { /** found an extension **/
