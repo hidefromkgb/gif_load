@@ -39,7 +39,7 @@ proxy that is discarded after every call):
                        (or -1 when transparency is disabled)
   * `GIF_WHDR::intr` - boolean flag indicating whether the current frame is
                   [interlaced](https://en.wikipedia.org/wiki/GIF#Interlacing);
-                       deinterlacing it is up to the caller (see the example
+                       deinterlacing it is up to the caller (see the examples
                        below)
   * `GIF_WHDR::mode` - next frame (SIC next, not current) blending mode:
                        [`GIF_NONE`:] no blending, mainly used in single-frame
@@ -224,7 +224,7 @@ First we need to build `gif_load.h` as a shared library:
 
 ```bash
 rm gif_load.so 2>/dev/null
-gcc -pedantic -ansi -xc -s <(sed "s:static long GIF_Load(:extern long GIF_Load(:" gif_load.h) \
+gcc -pedantic -ansi -xc -s <(sed "s:static long GIF_Load:extern long GIF_Load:" gif_load.h) \
     -o gif_load.so -shared -fPIC -Wl,--version-script=<(echo "{global:GIF_Load;local:*;};")
 ```
 

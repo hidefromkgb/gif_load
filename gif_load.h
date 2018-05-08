@@ -59,18 +59,13 @@ typedef struct {                 /** ======== frame writer info: ======== **/
 enum {GIF_NONE = 0, GIF_CURR = 1, GIF_BKGD = 2, GIF_PREV = 3};
 
 /** [ internal function, do not use ] **/
-static long _GIF_SkipChunk(uint8_t **buff, long *size) {
+static long _GIF_SkipChunk(uint8_t **buff, long size) {
     long skip;
 
-    ++(*buff);
-    if (--(*size) <= 0)
-        return 0;
-    do {
-        *buff += (skip = 1 + **buff);
-        if ((*size -= skip) <= 0)
-            return 0;
-    } while (skip > 1);
-    return 1;
+    if (++*buff && (--size > 0))
+        do *buff += (skip = 1 + **buff);
+        while (((size -= skip) > 0) && (skip > 1));
+    return size;
 }
 
 /** [ internal function, do not use ] **/
@@ -243,7 +238,8 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
     whdr.xdim = _GIF_SWAP(ghdr->xdim);
     whdr.ydim = _GIF_SWAP(ghdr->ydim);
     for (whdr.bptr = buff, whdr.bkgd = ghdr->bkgd, blen = --size;
-        (desc = *whdr.bptr++) != GIF_EOFM; blen--) { /** frame counting **/
+       ((desc = *whdr.bptr++) != GIF_EOFM) && (blen >= 0); /** sic: '>= 0' **/
+         blen = _GIF_SkipChunk(&whdr.bptr, blen) - 1) /** frame counting **/
         if (desc == GIF_FHDM) {
             fhdr = (struct GIF_FHDR*)whdr.bptr;
             if (_GIF_LoadFrameH(ghdr->flgs, &whdr.bptr, (void**)&whdr.cpal,
@@ -255,23 +251,22 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
             whdr.fryd = (whdr.fryd > whdr.fryo)? whdr.fryd : whdr.fryo;
             whdr.ifrm++;
         }
-        if (!_GIF_SkipChunk(&whdr.bptr, &blen))
-            break;
-    }
     blen = whdr.frxd * whdr.fryd * (long)sizeof(*whdr.bptr) + GIF_BLEN;
     GIF_MGET(whdr.bptr, ((unsigned long)blen), 1);
     whdr.nfrm = (desc != GIF_EOFM)? -whdr.ifrm : whdr.ifrm;
-    for (whdr.bptr += GIF_BLEN, whdr.ifrm = -1; /** frame extraction **/
-         skip < ((whdr.nfrm < 0)? -whdr.nfrm : whdr.nfrm); size--) {
+    for (whdr.bptr += GIF_BLEN, whdr.ifrm = -1; /** frame reading **/
+        (skip < (whdr.nfrm < 0)? -whdr.nfrm : whdr.nfrm) && (size >= 0);
+         size = (desc != GIF_EOFM)? ((desc != GIF_FHDM) || (skip > whdr.ifrm))?
+                _GIF_SkipChunk(&buff, size) - 1 : size - 1 : -1)
         if ((desc = *buff++) == GIF_FHDM) { /** found a frame **/
             whdr.intr = !!((fhdr = (struct GIF_FHDR*)buff)->flgs & 0x40);
             *(void**)&whdr.cpal = (void*)(ghdr + 1); /** interlaced? -^ **/
             whdr.clrs = _GIF_LoadFrameH(ghdr->flgs, &buff, (void**)&whdr.cpal,
                                         fhdr->flgs, &size, sizeof(*fhdr));
-            if (++whdr.ifrm >= skip) {
+            if (skip <= ++whdr.ifrm) {
                 if ((whdr.clrs <= 0)
                 ||  (_GIF_LoadFrame(&buff, &size, whdr.bptr) < 0))
-                    size = -(whdr.ifrm--); /** failed to extract the frame **/
+                    size = -whdr.ifrm-- - 1; /** failed to read the frame **/
                 else {
                     whdr.frxd = _GIF_SWAP(fhdr->xdim);
                     whdr.fryd = _GIF_SWAP(fhdr->ydim);
@@ -288,8 +283,6 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
                     gwfr(anim, &wtmp); /** passing the frame to the caller **/
                 }
             }
-            if ((whdr.ifrm >= skip) && (size > 0))
-                continue;
         }
         else if (desc == GIF_EHDM) { /** found an extension **/
             if (*buff == GIF_EGCM) /** graphics control ext. **/
@@ -300,9 +293,6 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
                 eamf(anim, &wtmp);
             }
         }
-        if ((desc == GIF_EOFM) || !_GIF_SkipChunk(&buff, &size))
-            break; /** found a GIF ending mark, or there`s no data left **/
-    }
     whdr.bptr -= GIF_BLEN;
     GIF_MGET(whdr.bptr, ((unsigned long)blen), 0);
     return (whdr.nfrm < 0)? (skip - whdr.ifrm - 1) : (whdr.ifrm + 1);
