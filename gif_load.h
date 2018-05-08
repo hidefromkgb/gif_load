@@ -69,7 +69,7 @@ static long _GIF_SkipChunk(uint8_t **buff, long size) {
 }
 
 /** [ internal function, do not use ] **/
-static long _GIF_LoadFrameH(unsigned gflg, uint8_t **buff, void **rpal,
+static long _GIF_LoadHeader(unsigned gflg, uint8_t **buff, void **rpal,
                             unsigned fflg, long *size, long flen) {
     const uint8_t GIF_FPAL = 0x80; /** "palette is present" flag **/
     long rclr = 0;
@@ -230,7 +230,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
         return 0;
 
     buff = (uint8_t*)(ghdr + 1) /** skipping the master header... **/
-         + _GIF_LoadFrameH(ghdr->flgs, 0, 0, 0, 0, 0L)
+         + _GIF_LoadHeader(ghdr->flgs, 0, 0, 0, 0, 0L)
          * (long)sizeof(*whdr.cpal); /** ...and the global palette, if any **/
     if ((size -= buff - (uint8_t*)ghdr) <= 0)
         return 0;
@@ -242,7 +242,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
          blen = _GIF_SkipChunk(&whdr.bptr, blen) - 1) /** count all frames **/
         if (desc == GIF_FHDM) {
             fhdr = (struct GIF_FHDR*)whdr.bptr;
-            if (_GIF_LoadFrameH(ghdr->flgs, &whdr.bptr, (void**)&whdr.cpal,
+            if (_GIF_LoadHeader(ghdr->flgs, &whdr.bptr, (void**)&whdr.cpal,
                                 fhdr->flgs, &blen, sizeof(*fhdr)) <= 0)
                 break;
             whdr.frxo = _GIF_SWAP(fhdr->xdim);
@@ -261,7 +261,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
         if ((desc = *buff++) == GIF_FHDM) { /** found a frame **/
             whdr.intr = !!((fhdr = (struct GIF_FHDR*)buff)->flgs & 0x40);
             *(void**)&whdr.cpal = (void*)(ghdr + 1); /** interlaced? -^ **/
-            whdr.clrs = _GIF_LoadFrameH(ghdr->flgs, &buff, (void**)&whdr.cpal,
+            whdr.clrs = _GIF_LoadHeader(ghdr->flgs, &buff, (void**)&whdr.cpal,
                                         fhdr->flgs, &size, sizeof(*fhdr));
             if ((skip <= ++whdr.ifrm) && ((whdr.clrs <= 0)
             ||  (_GIF_LoadFrame(&buff, &size, whdr.bptr) < 0)))
