@@ -108,12 +108,11 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
         return -3; /** min LZW size is out of its nominal [2; 8] bounds **/
     if ((ctbl = (1UL << ctsz)) != (mask & _GIF_SWAP(*(GIF_H*)(*buff + 1))))
         return -2; /** initial code is not equal to min LZW size **/
-    for (iter = prev = curr = 0; iter < ctbl; iter++)
+    for (iter = 0; iter < ctbl; iter++)
         code[iter] = (uint32_t)(iter << 24); /** persistent table items **/
     /** getting codes from stream (--size makes up for end-of-stream mark) **/
-    for (--(*size), bszc = -ccsz; (bseq = *(*buff)++); *buff += bseq) {
-        if ((*size -= bseq + 1) < 0)
-            return -4; /** unexpected end of the stream: insufficient size **/
+    for (--(*size), bszc = -ccsz, prev = curr = 0;
+       ((*size -= (bseq = *(*buff)++) + 1) >= 0) && bseq; *buff += bseq)
         for (; bseq > 0; bseq -= GIF_HLEN, *buff += GIF_HLEN)
             for (accu = (GIF_H)(_GIF_SWAP(*(GIF_H*)*buff)
                       & ((bseq < GIF_HLEN)? ((1U << (8 * bseq)) - 1U) : ~0U)),
@@ -139,18 +138,17 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
                         code[ctbl] = (uint32_t)prev + 0x1000
                                    + (code[prev] & 0xFFF000);
                     } /** appending SP / MP decoded pixels to the frame **/
-                    iter = (curr >= ctbl)? prev : curr;
+                    iter = (ctbl <= curr)? prev : curr;
                     bptr += (prev = (code[iter] >> 12) & 0xFFF);
                     do *bptr-- = (uint8_t)((iter = code[iter & 0xFFF]) >> 24);
                     while (iter & 0xFFF000);
                     bptr += prev + 2;
-                    if (curr >= ctbl)
+                    if (ctbl <= curr)
                         *bptr++ = (uint8_t)(iter >> 24);
                     if (ctbl < GIF_CLEN) /** appending the code table **/
                         code[ctbl] |= (uint32_t)iter & 0xFF000000;
-                }
-    }
-    return 0; /** no ED code before end-of-stream mark; RECOVERABLE ERROR **/
+                } /** 0: no ED before end-of-stream mark; -4: see above **/
+    return (++(*size) >= 0)? 0 : -4; /** ^- N.B.: 0 error is recoverable **/
 }
 
 /** _________________________________________________________________________
