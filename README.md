@@ -80,6 +80,9 @@ proxy that is discarded after every call):
                        strictly frame-specific, even when they contain the
                        same number of identical colors in identical order)
 
+Neither of the two callbacks needs to return a value, thus having `void` for
+a return type.
+
 `GIF_Load()`, in its turn, needs 6 parameters:
 
 1. a pointer to GIF data in RAM
@@ -99,6 +102,13 @@ again, this time with the `skip` parameter equalling 4 to skip those 4 frames.
 Note that the metadata callback is not affected by `skip`, and gets called
 again every time the frames between which the metadata was written are
 skipped.
+
+The return value of the function above, if positive, equals the total number
+of frames in the animation and indicates that the GIF data stream ended with
+a proper termination mark. Negative return value is the number of frames
+loaded per current call multiplied by -1, suggesting that the GIF data stream
+being decoded is still incomplete. Zero, in its turn, means that the call
+could not decode any more frames.
 
 `gif_load` is endian-aware. If the target machine can be big-endian, the user
 has to determine that manually and add `#define GIF_BIGE 1` to the source
