@@ -35,7 +35,7 @@ extern "C" {
 #include <stdint.h> /** imports uint8_t, uint16_t and uint32_t **/
 #ifndef GIF_MGET
     #include <stdlib.h>
-    #define GIF_MGET(m, s, c) m = (uint8_t*)realloc((c)? 0 : m, (c)? s : 0UL)
+    #define GIF_MGET(m, s, c) m = (uint8_t*)realloc((c)? 0 : m, (c)? s : 0UL);
 #endif
 #ifndef GIF_BIGE
     #define GIF_BIGE 0
@@ -62,9 +62,8 @@ enum {GIF_NONE = 0, GIF_CURR = 1, GIF_BKGD = 2, GIF_PREV = 3};
 static long _GIF_SkipChunk(uint8_t **buff, long size) {
     long skip;
 
-    if (++(*buff) && (--size > 0))
-        do *buff += (skip = 1 + **buff);
-        while (((size -= skip) > 0) && (skip > 1));
+    for (skip = 2, ++size, ++(*buff); ((size -= skip) > 0) && (skip > 1);
+        *buff += (skip = 1 + **buff));
     return size;
 }
 
@@ -108,8 +107,7 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
         return -3; /** min LZW size is out of its nominal [2; 8] bounds **/
     if ((ctbl = (1UL << ctsz)) != (mask & _GIF_SWAP(*(GIF_H*)(*buff + 1))))
         return -2; /** initial code is not equal to min LZW size **/
-    for (iter = 0; iter < ctbl; iter++)
-        code[iter] = (uint32_t)(iter << 24); /** persistent table items **/
+    for (iter = 0; iter < ctbl; code[iter++] = 0); /** persistent codes **/
     /** getting codes from stream (--size makes up for end-of-stream mark) **/
     for (--(*size), bszc = -ccsz, prev = curr = 0;
        ((*size -= (bseq = *(*buff)++) + 1) >= 0) && bseq; *buff += bseq)
@@ -138,15 +136,14 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
                         code[ctbl] = (uint32_t)prev + 0x1000
                                    + (code[prev] & 0xFFF000);
                     } /** appending SP / MP decoded pixels to the frame **/
-                    iter = (ctbl <= curr)? prev : curr;
-                    bptr += (prev = (code[iter] >> 12) & 0xFFF);
-                    do *bptr-- = (uint8_t)((iter = code[iter & 0xFFF]) >> 24);
-                    while (iter & 0xFFF000);
-                    bptr += prev + 2;
+                    prev = code[iter = (ctbl <= curr)? prev : curr] >> 12;
+                    for (bptr += (prev &= 0xFFF); (iter &= 0xFFF) >> ctsz;
+                        *bptr-- = (uint8_t)((iter = code[iter]) >> 24));
+                    (bptr += prev + 1)[-(long)prev - 1] = (uint8_t)iter;
                     if (ctbl <= curr)
-                        *bptr++ = (uint8_t)(iter >> 24);
+                        *bptr++ = (uint8_t)iter;
                     if (ctbl < GIF_CLEN) /** appending the code table **/
-                        code[ctbl] |= (uint32_t)iter & 0xFF000000;
+                        code[ctbl] |= (uint32_t)iter << 24;
                 } /** 0: no ED before end-of-stream mark; -4: see above **/
     return (++(*size) >= 0)? 0 : -4; /** ^- N.B.: 0 error is recoverable **/
 }
@@ -249,7 +246,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
             whdr.ifrm++;
         }
     blen = whdr.frxo * whdr.fryo * (long)sizeof(*whdr.bptr) + GIF_BLEN;
-    GIF_MGET(whdr.bptr, ((unsigned long)blen), 1);
+    GIF_MGET(whdr.bptr, ((unsigned long)blen), 1)
     whdr.nfrm = (desc != GIF_EOFM)? -whdr.ifrm : whdr.ifrm;
     for (whdr.bptr += GIF_BLEN, whdr.ifrm = -1; /** load all frames **/
         (skip < ((whdr.nfrm < 0)? -whdr.nfrm : whdr.nfrm)) && (size >= 0);
@@ -289,7 +286,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
             }
         }
     whdr.bptr -= GIF_BLEN;
-    GIF_MGET(whdr.bptr, ((unsigned long)blen), 0);
+    GIF_MGET(whdr.bptr, ((unsigned long)blen), 0)
     return (whdr.nfrm < 0)? (skip - whdr.ifrm - 1) : (whdr.ifrm + 1);
 }
 
