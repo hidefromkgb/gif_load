@@ -1,25 +1,37 @@
 # gif_load
-This is a public domain, single-header and single-call, ANSI C compatible
-loader for animated GIFs. 'ANSI C compatible' means that it builds fine with
-`-pedantic -ansi` compiler flags, but includes `stdint.h` unavailable prior
-to C99.
+This is an ANSI C compatible animated GIF loader in a single header file of
+less than 300 lines of code (less than 200 without empty lines and comments).
+It defines 1 new struct and 1 new enum, and requires 1 function call to load
+a GIF. 'ANSI C compatible' means that it builds fine with `-pedantic -ansi`
+compiler flags but includes `stdint.h` which is unavailable prior to C99.
+
+`gif_load` is free and unencumbered software released into the public domain,
+blah blah. See the header file for details.
 
 There are no strict dependencies on the standard C library. The only external
 function used by default is `realloc()` (both for freeing and allocation), but
 it\`s possible to override it by defining a macro called `GIF_MGET(m, s, c)`
 prior to including the header; `m` stands for a `uint8_t`-typed pointer to the
 memory block being allocated or freed, `s` is the target block size, typed
-`unsigned long`, and `c` equals 0 on freeing and 1 on allocation.
+`unsigned long`, and `c` equals 0 on freeing and 1 on allocation. For example,
+`GIF_MGET` might be defined as follows if `malloc()` / `free()` pair is to be
+used instead of `realloc()`:
 
-Loading GIFs immediately from disk is not supported: target files must be read
-or otherwise mapped into RAM by the caller.
+```c
+#include <stdlib.h>
+#define GIF_MGET(m, s, c) if (c) m = (uint8_t*)malloc(s); else free(m);
+#include "gif_load.h"
+```
+
+Loading GIFs immediately from disk is not supported: target files must
+be read or otherwise mapped into RAM by the caller.
 
 The main function that does the actual loading is called `GIF_Load()`.
-It requires a `__cdecl`-conventioned callback function to create the animation
-structure of any caller-defined format. This frame writer callback will be
-executed once every frame.
+It requires a callback function to create the animation structure of
+any user-defined format. This function, further referred to as the
+'frame writer callback', will be executed once every frame.
 
-Aditionally, it accepts a second callback used to process GIF
+Aditionally, the main function accepts a second callback used to process GIF
 [application-specific extensions](https://stackoverflow.com/a/28486261/7019311),
 i.e. metadata; in the vast majority of GIFs no such extensions are present, so
 this callback is optional.
@@ -30,18 +42,21 @@ Both frame writer callback and metadata callback need 2 parameters:
 2. pointer to a `GIF_WHDR` structure that encapsulates GIF frame information
 (callbacks may alter any fields at will, as the structure passed to them is a
 proxy that is discarded after every call):
-  * `GIF_WHDR::xdim` - global GIF width, [0; 65535]
-  * `GIF_WHDR::ydim` - global GIF height, [0; 65535]
-  * `GIF_WHDR::clrs` - number of colors in the current palette (often the same
-                       for all frames), {2; 4; 8; 16; 32; 64; 128; 256}
-  * `GIF_WHDR::bkgd` - 0-based background color index for the current palette
+  * `GIF_WHDR::xdim` - global GIF width, always constant across frames
+                       (further referred to as 'ACAF'); [0; 65535]
+  * `GIF_WHDR::ydim` - global GIF height, ACAF; [0; 65535]
+  * `GIF_WHDR::clrs` - number of colors in the current palette (local palettes
+                       are not that rare so it may vary across frames, further
+                       referred to as 'MVAF'); {2; 4; 8; 16; 32; 64; 128; 256}
+  * `GIF_WHDR::bkgd` - 0-based background color index for the current palette,
+                       ACAF (sic ACAF, as this index is set globally)
   * `GIF_WHDR::tran` - 0-based transparent color index for the current palette
-                       (or -1 when transparency is disabled)
+                       (or −1 when transparency is disabled), MVAF
   * `GIF_WHDR::intr` - boolean flag indicating whether the current frame is
                   [interlaced](https://en.wikipedia.org/wiki/GIF#Interlacing);
                        deinterlacing it is up to the caller (see the examples
-                       below)
-  * `GIF_WHDR::mode` - next frame (SIC next, not current) blending mode:
+                       below), MVAF
+  * `GIF_WHDR::mode` - next frame (sic next, not current) blending mode, MVAF:
                        [`GIF_NONE`:] no blending, mainly used in single-frame
                        GIFs, functionally equivalent to `GIF_CURR`;
                        [`GIF_CURR`:] leave the current image state as is;
@@ -52,33 +67,37 @@ proxy that is discarded after every call):
                        `GIF_PREV` frame came a `GIF_BKGD` one, the state to
                        be restored is before a certain part of the resulting
                        image was filled with the background color, not after!
-  * `GIF_WHDR::frxd` - current frame width, [0; 65535]
-  * `GIF_WHDR::fryd` - current frame height, [0; 65535]
-  * `GIF_WHDR::frxo` - current frame horizontal offset, [0; 65535]
-  * `GIF_WHDR::fryo` - current frame vertical offset, [0; 65535]
-  * `GIF_WHDR::time` - next frame delay in GIF time units (1 unit = 10 msec);
-                       negative values are possible here, they mean that the
-                       frame requires user input to advance, and the actual
-                       delay equals �(`time` + 1) GIF time units: zero delay
-                       + user input = wait for input indefinitely, nonzero
-                       delay + user input = wait for either input or timeout
-                       (whichever comes first); *N.B.:* user input requests
-                       can be safely ignored, disregarding the GIF standard
-  * `GIF_WHDR::ifrm` - 0-based index of the current frame
+  * `GIF_WHDR::frxd` - current frame width, MVAF; [0; 65535]
+  * `GIF_WHDR::fryd` - current frame height, MVAF; [0; 65535]
+  * `GIF_WHDR::frxo` - current frame horizontal offset, MVAF; [0; 65535]
+  * `GIF_WHDR::fryo` - current frame vertical offset, MVAF; [0; 65535]
+  * `GIF_WHDR::time` - next frame delay in GIF time units (1 unit = 10 msec),
+                       MVAF; negative values are possible here, they mean
+                       that the frame requires user input to advance, and the
+                       actual delay equals −(`time` + 1) GIF time units: zero
+                       delay + user input = wait for input indefinitely,
+                       nonzero delay + user input = wait for either input or
+                       timeout (whichever comes first); *N.B.:* user input
+                       requests can be safely ignored, disregarding the GIF
+                       standard
+  * `GIF_WHDR::ifrm` - 0-based index of the current frame, always varies
+                       across frames (further referred to as 'AVAF')
   * `GIF_WHDR::nfrm` - total frame count, negative if the GIF data supplied
-                       is incomplete
-  * `GIF_WHDR::bptr` - [frame writer:] pixel indices for the current frame;
-                       [metadata callback:] app metadata header (8+3 bytes)
-                       followed by a GIF chunk (1 byte designating length L,
-                       then L bytes of metadata, and so forth; L = 0 means
-                       end of chunk)
+                       is incomplete, ACAF during a single `GIF_Load()` call
+                       (but may vary across `GIF_Load()` calls)
+  * `GIF_WHDR::bptr` - [frame writer:] pixel indices for the current frame,
+                       ACAF; [metadata callback:] app metadata header (8+3
+                       bytes) followed by a GIF chunk (1 byte designating
+                       length L, then L bytes of metadata, and so forth; L = 0
+                       means end of chunk), AVAF
   * `GIF_WHDR::cpal` - the current palette containing 3 `uint8_t` values for
                        each of the colors: `R` for the red channel, `G` for
                        green and `B` for blue; this pointer is guaranteed
                        to be the same across frames if and only if the global
                        palette is used for those frames (local palettes are
                        strictly frame-specific, even when they contain the
-                       same number of identical colors in identical order)
+                       same number of identical colors in identical order),
+                       MVAF
 
 Neither of the two callbacks needs to return a value, thus having `void` for
 a return type.
@@ -97,20 +116,20 @@ a return type.
 Partial GIFs are also supported, but only at a granularity of one frame. For
 example, if the file ends in the middle of the fifth frame, no attempt would
 be made to recover the upper half, and the resulting animation will only
-contain 4 frames. When more data is available, the loader might be called
+contain 4 frames. When more data is available the loader might be called
 again, this time with the `skip` parameter equalling 4 to skip those 4 frames.
-Note that the metadata callback is not affected by `skip`, and gets called
+Note that the metadata callback is not affected by `skip` and gets called
 again every time the frames between which the metadata was written are
 skipped.
 
 The return value of the function above, if positive, equals the total number
 of frames in the animation and indicates that the GIF data stream ended with
 a proper termination mark. Negative return value is the number of frames
-loaded per current call multiplied by -1, suggesting that the GIF data stream
+loaded per current call multiplied by −1, suggesting that the GIF data stream
 being decoded is still incomplete. Zero, in its turn, means that the call
 could not decode any more frames.
 
-`gif_load` is endian-aware. If the target machine can be big-endian, the user
+`gif_load` is endian-aware. If the target machine can be big-endian the user
 has to determine that manually and add `#define GIF_BIGE 1` to the source
 prior to the header being included if that\`s the case, or otherwise define
 the endianness to be used (0 = little, 1 = big), e.g. by declaring a helper
@@ -118,17 +137,20 @@ function and setting `GIF_BIGE` to expand into its call, or by passing it as a
 compiler parameter (e.g. `-DGIF_BIGE=1` for GCC / Clang). Although GIF data is
 little-endian, all multibyte integers passed to the user through `long`-typed
 fields of `GIF_WHDR` have correct byte order regardless of the endianness of
-the target machine. Most other data, e.g. pixel indices of a frame, consists
-of single bytes and does not require swapping. One notable exception is GIF
-application metadata which is passed as the raw chunk of bytes, and then it\`s
-the callback\`s job to parse it and decide whether to decode and how to do
-that.
+the target machine, provided that `GIF_BIGE` is set correctly. Most other
+data, e.g. pixel indices of a frame, consists of single bytes and thus does
+not require endianness correction. One notable exception is GIF application
+metadata which is passed as the raw chunk of bytes (for details see the
+description of `GIF_WHDR::bptr` provided above), and then it\`s the
+callback\`s job to parse it and decide whether to decode and how to do that.
 
 
 
-# usage
-Here is a simple example of how to use `GIF_Load()` to transform an animated
-GIF file into a 32-bit uncompressed TGA:
+# C / C++ usage example
+Here is an example of how to use `GIF_Load()` to transform an animated GIF
+file into a 32-bit uncompressed TGA. For the sake of simplicity all frames
+are concatenated one below the other and no attempt is made to keep all of
+them if the resulting height exceeds the TGA height limit which is 0xFFFF.
 
 ```c
 #include "gif_load.h"
@@ -226,19 +248,34 @@ int main(int argc, char *argv[]) {
 }
 ```
 
-And this is an example of how to use `GIF_Load()` from Python. As for now only
-the Linux compilation string is available, but building it on Windows is also
-possible.
 
-First we need to build `gif_load.h` as a shared library:
 
+# Python usage example
+Here is an example of how to use `GIF_Load()` from Python 2.x or 3.x.
+
+*N.B.:* The implementation shown here complies to the GIF standard much
+better than the one PIL has (at least as of 2018-02-07): for example
+it preserves transparency and supports local frame palettes.
+
+First of all, `gif_load.h` has to be built as a shared library:
+
+Linux / macOS:
 ```bash
+# only works when executed from the directory where gif_load.h resides
 rm gif_load.so 2>/dev/null
-gcc -pedantic -ansi -xc -s <(sed "s:static long GIF_Load:extern long GIF_Load:" gif_load.h) \
+uname -s | grep -q ^Darwin && CC=clang || CC=gcc
+$CC -pedantic -ansi -xc -s <(sed "s:static long GIF_Load:extern long GIF_Load:" gif_load.h) \
     -o gif_load.so -shared -fPIC -Wl,--version-script=<(echo "{global:GIF_Load;local:*;};")
 ```
 
-And now let\`s use it:
+Windows:
+```bash
+# yet to be created, pull requests welcome
+```
+
+Then the loading function can be called using CTypes
+([Python 2 reference](https://docs.python.org/2/library/ctypes.html),
+ [Python 3 reference](https://docs.python.org/3/library/ctypes.html)):
 
 ```python
 from PIL import Image
@@ -296,7 +333,3 @@ def GIF_Save(file, fext):
 
 GIF_Save("insert_gif_name_here_without_extension", "png")
 ```
-
-The implementation shown here complies to the GIF standard much better than
-the one PIL has (as of 2018-02-07): for example, it preserves transparency
-and supports local frame palettes.
