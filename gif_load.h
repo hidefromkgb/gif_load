@@ -88,14 +88,13 @@ static long _GIF_LoadHeader(unsigned gflg, uint8_t **buff, void **rpal,
 
 /** [ internal function, do not use ] **/
 static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
-    typedef unsigned long GIF_U; /** short alias for a very useful type **/
-    typedef uint16_t GIF_H; GIF_H accu, mask; /** bit accum and bitmask **/
-    const long GIF_HLEN = sizeof(GIF_H); /** to rid the scope of sizeof **/
-    const GIF_U GIF_CLEN = 1 << 12; /** code table length: 4096 items   **/
-    GIF_U ctbl, /** last code table index (or greater, when > GIF_CLEN) **/
-          iter, /** iterator used to inflate codes into index strings   **/
-          prev, curr; /** codes from the stream: previous / current     **/
-    long  ctsz, ccsz, /** code table bit sizes: min LZW / current       **/
+    typedef uint16_t GIF_H;
+    const long GIF_HLEN = sizeof(GIF_H), /** to rid the scope of sizeof **/
+               GIF_CLEN = 1 << 12;  /** code table length: 4096 items   **/
+    GIF_H accu, mask; /** bit accumulator and bit mask                  **/
+    long  ctbl, iter, /** last code table index / index string iterator **/
+          prev, curr, /** codes from the stream: previous / current     **/
+          ctsz, ccsz, /** code table bit sizes: min LZW / current       **/
           bseq, bszc; /** counters: block sequence / bit size           **/
     uint32_t *code = (uint32_t*)bptr - GIF_CLEN; /** code table pointer **/
 
@@ -105,45 +104,44 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
     mask = (GIF_H)((1 << (ccsz = (ctsz = *(*buff - 1)) + 1)) - 1);
     if ((ctsz < 2) || (ctsz > 8))
         return -3; /** min LZW size is out of its nominal [2; 8] bounds **/
-    if ((ctbl = (1UL << ctsz)) != (mask & _GIF_SWAP(*(GIF_H*)(*buff + 1))))
+    if ((ctbl = (1L << ctsz)) != (mask & _GIF_SWAP(*(GIF_H*)(*buff + 1))))
         return -2; /** initial code is not equal to min LZW size **/
-    for (iter = 0; iter < ctbl; code[iter++] = 0); /** persistent codes **/
+    for (curr = ctbl++; curr; code[--curr] = 0); /** actual color codes **/
+
     /** getting codes from stream (--size makes up for end-of-stream mark) **/
     for (--(*size), bszc = -ccsz, prev = curr = 0;
-       ((*size -= (bseq = *(*buff)++) + 1) >= 0) && bseq; *buff += bseq)
+        ((*size -= (bseq = *(*buff)++) + 1) >= 0) && bseq; *buff += bseq)
         for (; bseq > 0; bseq -= GIF_HLEN, *buff += GIF_HLEN)
             for (accu = (GIF_H)(_GIF_SWAP(*(GIF_H*)*buff)
                       & ((bseq < GIF_HLEN)? ((1U << (8 * bseq)) - 1U) : ~0U)),
-                 curr |= (GIF_U)(accu << (ccsz + bszc)),
-                 accu = (GIF_H)(accu >> -bszc),
+                 curr |= accu << (ccsz + bszc), accu = (GIF_H)(accu >> -bszc),
                  bszc += 8 * ((bseq < GIF_HLEN)? bseq : GIF_HLEN);
                  bszc >= 0; bszc -= ccsz, prev = curr, curr = accu,
                                           accu = (GIF_H)(accu >> ccsz))
-                if (((curr &= mask) & ~1UL) == (GIF_U)(1 << ctsz)) {
-                    if (curr & 1) /** end-of-data code (ED). **/
-                        return (*((*buff += bseq + 1) - 1))? -1 : 1; /** < **/
-                    ctbl = (GIF_U)(1 << ctsz); /** table drop code (TD). | **/
-                    mask = (GIF_H)((1 << (ccsz = ctsz + 1)) - 1);    /** | **/
-                } /** [ -1: no end-of-stream mark after ED; 1: decoded ]-' **/
+                if (((curr &= mask) & ~1L) == (1L << ctsz)) {
+                    if (~(ctbl = curr + 1) & 1) /** end-of-data code (ED). **/
+                        /** -1: no end-of-stream mark after ED; 1: decoded **/
+                        return (*((*buff += bseq + 1) - 1))? -1 : 1;
+                    mask = (GIF_H)((1 << (ccsz = ctsz + 1)) - 1);
+                } /** ^- table drop code (TD). TD = 1 << ctsz, ED = TD + 1 **/
                 else { /** single-pixel (SP) or multi-pixel (MP) code. **/
-                    /** ctbl may exceed GIF_CLEN: it can`t overflow even **/
-                    /** if the frame`s 65535x65535 (max), being unsigned **/
-                    if (++ctbl < GIF_CLEN) { /** is the code table full? **/
+                    if (ctbl < GIF_CLEN) { /** is the code table full? **/
                         if ((ctbl == mask) && (ctbl < GIF_CLEN - 1)) {
                             mask = (GIF_H)(mask + mask + 1);
                             ccsz++; /** yes; extending **/
                         } /** prev = TD? => curr < ctbl = prev **/
-                        code[ctbl] = (uint32_t)prev + 0x1000
-                                   + (code[prev] & 0xFFF000);
+                        code[ctbl] = (uint32_t)prev + (code[prev] & 0xFFF000);
                     } /** appending SP / MP decoded pixels to the frame **/
-                    prev = code[iter = (ctbl <= curr)? prev : curr] >> 12;
-                    for (bptr += (prev &= 0xFFF); (iter &= 0xFFF) >> ctsz;
-                        *bptr-- = (uint8_t)((iter = code[iter]) >> 24));
-                    (bptr += prev + 1)[-(long)prev - 1] = (uint8_t)iter;
-                    if (ctbl <= curr)
-                        *bptr++ = (uint8_t)iter;
-                    if (ctbl < GIF_CLEN) /** appending the code table **/
-                        code[ctbl] |= (uint32_t)iter << 24;
+                    iter = (ctbl <= curr)? prev : curr;
+                    prev = (long)((code[iter] >> 12) & 0xFFF);
+                    for (bptr += prev; (iter &= 0xFFF) >> ctsz;
+                        *bptr-- = (uint8_t)((iter = (long)code[iter]) >> 24));
+                    (bptr += prev + 1)[-prev - 1] = (uint8_t)iter;
+                    if (ctbl < GIF_CLEN) { /** appending the code table **/
+                        if (ctbl <= curr)
+                            *bptr++ = (uint8_t)iter;
+                        code[ctbl++] += ((uint32_t)iter << 24) + 0x1000;
+                    }
                 } /** 0: no ED before end-of-stream mark; -4: see above **/
     return (++(*size) >= 0)? 0 : -4; /** ^- N.B.: 0 error is recoverable **/
 }
