@@ -35,7 +35,7 @@ extern "C" {
 #include <stdint.h> /** imports uint8_t, uint16_t and uint32_t **/
 #ifndef GIF_MGET
     #include <stdlib.h>
-    #define GIF_MGET(m, s, c) m = (uint8_t*)realloc((c)? 0 : m, (c)? s : 0UL);
+    #define GIF_MGET(m,s,a,c) m = (uint8_t*)realloc((c)? 0 : m, (c)? s : 0UL);
 #endif
 #ifndef GIF_BIGE
     #define GIF_BIGE 0
@@ -70,20 +70,14 @@ static long _GIF_SkipChunk(uint8_t **buff, long size) {
 /** [ internal function, do not use ] **/
 static long _GIF_LoadHeader(unsigned gflg, uint8_t **buff, void **rpal,
                             unsigned fflg, long *size, long flen) {
-    const uint8_t GIF_FPAL = 0x80; /** "palette is present" flag **/
-    long rclr = 0;
-
     if (flen && (!(*buff += flen) || ((*size -= flen) <= 0)))
-        return -2;
-    if (flen && (fflg & GIF_FPAL)) { /** local palette has priority **/
-        *rpal = *buff;
-        *buff += (rclr = 2 << (fflg & 7)) * 3L;
-        if ((*size -= rclr * 3L) <= 0) /** 3L: 3 uint8_t color channels **/
-            return -1;
-    }
-    else if (gflg & GIF_FPAL) /** no local palette, using global! **/
-        rclr = 2 << (gflg & 7);
-    return rclr;
+        return -2;  /** v--[ 0x80: "palette is present" flag ]--, **/
+    if (flen && (fflg & 0x80)) { /** local palette has priority | **/
+        *rpal = *buff; /** [ 3L: 3 uint8_t color channels ]--,  | **/
+        *buff += (flen = 2 << (fflg & 7)) * 3L;       /** <--|  | **/
+        return ((*size -= flen * 3L) > 0)? flen : -1; /** <--'  | **/
+    } /** no local palette found, checking for the global one   | **/
+    return (gflg & 0x80)? (2 << (gflg & 7)) : 0;      /** <-----' **/
 }
 
 /** [ internal function, do not use ] **/
@@ -91,7 +85,7 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
     typedef uint16_t GIF_H;
     const long GIF_HLEN = sizeof(GIF_H), /** to rid the scope of sizeof **/
                GIF_CLEN = 1 << 12;  /** code table length: 4096 items   **/
-    GIF_H accu, mask; /** bit accumulator and bit mask                  **/
+    GIF_H accu, mask; /** bit accumulator / bit mask                    **/
     long  ctbl, iter, /** last code table index / index string iterator **/
           prev, curr, /** codes from the stream: previous / current     **/
           ctsz, ccsz, /** code table bit sizes: min LZW / current       **/
@@ -134,9 +128,9 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
                     } /** appending SP / MP decoded pixels to the frame **/
                     iter = (ctbl <= curr)? prev : curr;
                     prev = (long)((code[iter] >> 12) & 0xFFF);
-                    for (bptr += prev; (iter &= 0xFFF) >> ctsz;
+                    for (bptr += prev++; (iter &= 0xFFF) >> ctsz;
                         *bptr-- = (uint8_t)((iter = (long)code[iter]) >> 24));
-                    (bptr += prev + 1)[-prev - 1] = (uint8_t)iter;
+                    (bptr += prev)[-prev] = (uint8_t)iter;
                     if (ctbl < GIF_CLEN) { /** appending the code table **/
                         if (ctbl <= curr)
                             *bptr++ = (uint8_t)iter;
@@ -244,7 +238,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
             whdr.ifrm++;
         }
     blen = whdr.frxo * whdr.fryo * (long)sizeof(*whdr.bptr) + GIF_BLEN;
-    GIF_MGET(whdr.bptr, ((unsigned long)blen), 1)
+    GIF_MGET(whdr.bptr, ((unsigned long)blen), anim, 1)
     whdr.nfrm = (desc != GIF_EOFM)? -whdr.ifrm : whdr.ifrm;
     for (whdr.bptr += GIF_BLEN, whdr.ifrm = -1; /** load all frames **/
         (skip < ((whdr.nfrm < 0)? -whdr.nfrm : whdr.nfrm)) && (size >= 0);
@@ -284,7 +278,7 @@ static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
             }
         }
     whdr.bptr -= GIF_BLEN;
-    GIF_MGET(whdr.bptr, ((unsigned long)blen), 0)
+    GIF_MGET(whdr.bptr, ((unsigned long)blen), anim, 0)
     return (whdr.nfrm < 0)? (skip - whdr.ifrm - 1) : (whdr.ifrm + 1);
 }
 

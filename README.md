@@ -10,16 +10,18 @@ blah blah. See the header file for details.
 
 There are no strict dependencies on the standard C library. The only external
 function used by default is `realloc()` (both for freeing and allocation), but
-it\`s possible to override it by defining a macro called `GIF_MGET(m, s, c)`
-prior to including the header; `m` stands for a `uint8_t`-typed pointer to the
-memory block being allocated or freed, `s` is the target block size, typed
-`unsigned long`, and `c` equals 0 on freeing and 1 on allocation. For example,
-`GIF_MGET` might be defined as follows if `malloc()` / `free()` pair is to be
-used instead of `realloc()`:
+it\`s possible to override it by defining a macro called `GIF_MGET(m,s,a,c)`
+prior to including the header; `m` stands for a `uint8_t*`-typed pointer to
+the memory block being allocated or freed, `s` is the target block size, typed
+`unsigned long`, `a` is the value of the fifth parameter passed to `GIF_Load()`
+(mainly used to hold a pointer to some user-defined structure if need be; see
+below), typed `void*`, and `c` equals 0 on freeing and 1 on allocation. For
+example, `GIF_MGET` might be defined as follows if `malloc()` / `free()` pair
+is to be used instead of `realloc()`:
 
 ```c
 #include <stdlib.h>
-#define GIF_MGET(m, s, c) if (c) m = (uint8_t*)malloc(s); else free(m);
+#define GIF_MGET(m,s,a,c) if (c) m = (uint8_t*)malloc(s); else free(m);
 #include "gif_load.h"
 ```
 
