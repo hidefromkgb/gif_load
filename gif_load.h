@@ -132,8 +132,10 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
                         *bptr-- = (uint8_t)((iter = (long)code[iter]) >> 24));
                     (bptr += prev)[-prev] = (uint8_t)iter;
                     if (ctbl < GIF_CLEN) { /** appending the code table **/
-                        if (ctbl <= curr)
+                        if (ctbl == curr)
                             *bptr++ = (uint8_t)iter;
+                        else if (ctbl < curr)
+                            return -5; /** wrong code in the stream **/
                         code[ctbl++] += ((uint32_t)iter << 24) + 0x1000;
                     }
                 } /** 0: no ED before end-of-stream mark; -4: see above **/
