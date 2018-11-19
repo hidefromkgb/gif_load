@@ -84,7 +84,7 @@ static long _GIF_LoadHeader(unsigned gflg, uint8_t **buff, void **rpal,
 static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
     typedef uint16_t GIF_H;
     const long GIF_HLEN = sizeof(GIF_H), /** to rid the scope of sizeof **/
-               GIF_CLEN = 1 << 12;  /** code table length: 4096 items   **/
+               GIF_CLEN = 1 << 12;    /** code table length: 4096 items **/
     GIF_H accu, mask; /** bit accumulator / bit mask                    **/
     long  ctbl, iter, /** last code table index / index string iterator **/
           prev, curr, /** codes from the stream: previous / current     **/
