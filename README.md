@@ -184,11 +184,11 @@ void Frame(void *data, GIF_WHDR *whdr) {
     uint8_t head[18] = {0};
     STAT *stat = (STAT*)data;
 
-    #define BGRA(i) \
-        ((uint32_t)(whdr->cpal[whdr->bptr[i]].R << ((GIF_BIGE)? 8 : 16)) | \
-         (uint32_t)(whdr->cpal[whdr->bptr[i]].G << ((GIF_BIGE)? 16 : 8)) | \
-         (uint32_t)(whdr->cpal[whdr->bptr[i]].B << ((GIF_BIGE)? 24 : 0)) | \
-        ((whdr->bptr[i] != whdr->tran)? (GIF_BIGE)? 0xFF : 0xFF000000 : 0))
+    #define BGRA(i) ((whdr->bptr[i] == whdr->tran)? 0 : \
+          ((uint32_t)(whdr->cpal[whdr->bptr[i]].R << ((GIF_BIGE)? 8 : 16)) \
+         | (uint32_t)(whdr->cpal[whdr->bptr[i]].G << ((GIF_BIGE)? 16 : 8)) \
+         | (uint32_t)(whdr->cpal[whdr->bptr[i]].B << ((GIF_BIGE)? 24 : 0)) \
+         | ((GIF_BIGE)? 0xFF : 0xFF000000)))
     if (!whdr->ifrm) {
         /** TGA doesn`t support heights over 0xFFFF, so we have to trim: **/
         whdr->nfrm = ((whdr->nfrm < 0)? -whdr->nfrm : whdr->nfrm) * whdr->ydim;
