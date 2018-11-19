@@ -220,9 +220,10 @@ void Frame(void *data, GIF_WHDR *whdr) {
     write(stat->uuid, pict, sizeof(uint32_t) * (uint32_t)whdr->xdim
                                              * (uint32_t)whdr->ydim);
     if (whdr->mode == GIF_BKGD) /** cutting a hole for the next frame **/
-        for (y = 0; y < (uint32_t)whdr->fryd; y++)
+        for (whdr->bptr[0] = (whdr->tran >= 0)? whdr->tran : whdr->bkgd,
+             y = 0; y < (uint32_t)whdr->fryd; y++)
             for (x = 0; x < (uint32_t)whdr->frxd; x++)
-                pict[(uint32_t)whdr->xdim * y + x + ddst] = BGRA(whdr->bkgd);
+                pict[(uint32_t)whdr->xdim * y + x + ddst] = BGRA(0);
     #undef BGRA
 }
 
@@ -314,8 +315,11 @@ def GIF_Load(file):
         if (w[0].ifrm != (w[0].nfrm - 1)):
             list.append(list[max(0, tail - int(w[0].mode == 3))].copy())
             if (w[0].mode == 2):
-                base = Image.new("L", (w[0].frxd, w[0].fryd), w[0].bkgd)
-                base.putpalette(cpal)
+                if (w[0].tran >= 0):
+                    base = Image.new("RGBA", (w[0].frxd, w[0].fryd))
+                else:
+                    base = Image.new("L", (w[0].frxd, w[0].fryd), w[0].bkgd)
+                    base.putpalette(cpal)
                 list[tail + 1].paste(base, (w[0].frxo, w[0].fryo))
     try: file = open(file, "rb")
     except IOError: return []
