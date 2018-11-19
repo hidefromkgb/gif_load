@@ -86,12 +86,14 @@ proxy that is discarded after every call):
                        across frames (further referred to as 'AVAF')
   * `GIF_WHDR::nfrm` - total frame count, negative if the GIF data supplied
                        is incomplete, ACAF during a single `GIF_Load()` call
-                       (but may vary across `GIF_Load()` calls)
+                       but may vary across `GIF_Load()` calls
   * `GIF_WHDR::bptr` - [frame writer:] pixel indices for the current frame,
-                       ACAF; [metadata callback:] app metadata header (8+3
-                       bytes) followed by a GIF chunk (1 byte designating
-                       length L, then L bytes of metadata, and so forth; L = 0
-                       means end of chunk), AVAF
+                       ACAF (it is only the pointer address that is constant;
+                       the pixel indices stored inside = MVAF); [metadata
+                       callback:] app metadata header (8+3 bytes) followed by
+                       a GIF chunk (1 byte designating length L, then L bytes
+                       of metadata, and so forth; L = 0 means end of chunk),
+                       AVAF
   * `GIF_WHDR::cpal` - the current palette containing 3 `uint8_t` values for
                        each of the colors: `R` for the red channel, `G` for
                        green and `B` for blue; this pointer is guaranteed
