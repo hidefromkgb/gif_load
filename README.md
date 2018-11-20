@@ -267,7 +267,7 @@ First of all, `gif_load.h` has to be built as a shared library:
 
 Linux / macOS:
 ```bash
-# only works when executed from the directory where gif_load.h resides
+# Only works when executed from the directory where gif_load.h resides
 rm gif_load.so 2>/dev/null
 uname -s | grep -q ^Darwin && CC=clang || CC=gcc
 $CC -pedantic -ansi -xc -s <(sed "s:static long GIF_Load:extern long GIF_Load:" gif_load.h) \
@@ -276,7 +276,10 @@ $CC -pedantic -ansi -xc -s <(sed "s:static long GIF_Load:extern long GIF_Load:" 
 
 Windows:
 ```bash
-# yet to be created, pull requests welcome
+rem Only works when executed from the directory where gif_load.h resides
+powershell -Command "(gc gif_load.h) -replace 'static long GIF_Load', '__declspec(dllexport) long GIF_Load' | Out-File gif_load.c"
+cl /LD gif_load.c /Fegif_load.dll
+del gif_load.c gif_load.exp gif_load.lib
 ```
 
 Then the loading function can be called using CTypes
