@@ -149,6 +149,11 @@ metadata which is passed as the raw chunk of bytes (for details see the
 description of `GIF_WHDR::bptr` provided above), and then it\`s the
 callback\`s job to parse it and decide whether to decode and how to do that.
 
+There is a possibility to build `gif_load` as a shared library. `GIF_EXTR` is
+a convenience macro to be defined so that the `GIF_Load()` function gets an
+entry in the export table of the library. See the Python example for further
+information.
+
 
 
 # C / C++ usage example
@@ -270,16 +275,15 @@ Linux / macOS:
 # Only works when executed from the directory where gif_load.h resides
 rm gif_load.so 2>/dev/null
 uname -s | grep -q ^Darwin && CC=clang || CC=gcc
-$CC -pedantic -ansi -xc -s <(sed "s:static long GIF_Load:extern long GIF_Load:" gif_load.h) \
-    -o gif_load.so -shared -fPIC -Wl,--version-script=<(echo "{global:GIF_Load;local:*;};")
+$CC -pedantic -ansi -s -DGIF_EXTR=extern -xc gif_load.h -o gif_load.so \
+    -shared -fPIC -Wl,--version-script=<(echo "{global:GIF_Load;local:*;};")
 ```
 
 Windows:
 ```bash
 rem Only works when executed from the directory where gif_load.h resides
-powershell -Command "(gc gif_load.h) -replace 'static long GIF_Load', '__declspec(dllexport) long GIF_Load' | Out-File gif_load.c"
-cl /LD gif_load.c /Fegif_load.dll
-del gif_load.c gif_load.exp gif_load.lib
+del gif_load.exp gif_load.lib gif_load.dll
+cl /DGIF_EXTR=__declspec(dllexport) /LD /Tc gif_load.h /Fegif_load.dll
 ```
 
 Then the loading function can be called using CTypes

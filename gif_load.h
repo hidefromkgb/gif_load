@@ -40,6 +40,9 @@ extern "C" {
 #ifndef GIF_BIGE
     #define GIF_BIGE 0
 #endif
+#ifndef GIF_EXTR
+    #define GIF_EXTR static
+#endif
 #define _GIF_SWAP(h) ((GIF_BIGE)? ((uint16_t)(h << 8) | (h >> 8)) : h)
 
 #pragma pack(push, 1)
@@ -156,8 +159,8 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
     ANIM: implementation-specific data (e.g. a structure or a pointer to it)
     SKIP: number of frames to skip before resuming
  **/
-static long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
-                     void (*eamf)(void*, GIF_WHDR*), void *anim, long skip) {
+GIF_EXTR long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
+                       void (*eamf)(void*, GIF_WHDR*), void *anim, long skip) {
     const long    GIF_BLEN = (1 << 12) * sizeof(uint32_t);
     const uint8_t GIF_EHDM = 0x21, /** extension header mark              **/
                   GIF_FHDM = 0x2C, /** frame header mark                  **/
