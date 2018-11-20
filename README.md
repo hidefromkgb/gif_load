@@ -283,7 +283,7 @@ Windows:
 ```bash
 rem Only works when executed from the directory where gif_load.h resides
 del gif_load.exp gif_load.lib gif_load.dll
-cl /DGIF_EXTR=__declspec(dllexport) /LD /Tc gif_load.h /Fegif_load.dll
+cl /LD /Zl /DGIF_EXTR=__declspec(dllexport) /Tc gif_load.h msvcrt.lib /Fegif_load.dll
 ```
 
 Then the loading function can be called using CTypes
