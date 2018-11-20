@@ -62,7 +62,8 @@ proxy that is discarded after every call):
                        [`GIF_NONE`:] no blending, mainly used in single-frame
                        GIFs, functionally equivalent to `GIF_CURR`;
                        [`GIF_CURR`:] leave the current image state as is;
-                       [`GIF_BKGD`:] restore the background color in the
+                       [`GIF_BKGD`:] restore the background color (or
+                       transparency, in case `GIF_WHDR::tran` ≠ −1) in the
                        boundaries of the current frame; [`GIF_PREV`:] restore
                        the image state that used to be before it was blended
                        with the current frame; *N.B.:* if right before a
