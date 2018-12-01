@@ -179,15 +179,15 @@ them if the resulting height exceeds the TGA height limit which is 0xFFFF.
 
 #pragma pack(push, 1)
 typedef struct {
-    void *data, *draw;
-    unsigned long size;
+    void *data, *pict, *prev;
+    unsigned long size, last;
     int uuid;
 } STAT; /** #pragma avoids -Wpadded on 64-bit machines **/
 #pragma pack(pop)
 
 void Frame(void*, GIF_WHDR*); /** keeps -Wmissing-prototypes happy **/
 void Frame(void *data, GIF_WHDR *whdr) {
-    uint32_t *pict, x, y, yoff, iter, ifin, dsrc, ddst;
+    uint32_t *pict, *prev, x, y, yoff, iter, ifin, dsrc, ddst;
     uint8_t head[18] = {0};
     STAT *stat = (STAT*)data;
 
@@ -209,13 +209,13 @@ void Frame(void *data, GIF_WHDR *whdr) {
         head[16] = 32;   /** 32 bits depth **/
         head[17] = 0x20; /** top-down flag **/
         write(stat->uuid, head, 18UL);
-        stat->draw = calloc(sizeof(uint32_t),
-                           (unsigned long)(whdr->xdim * whdr->ydim));
+        ddst = whdr->xdim * whdr->ydim;
+        stat->pict = calloc(sizeof(uint32_t), ddst);
+        stat->prev = calloc(sizeof(uint32_t), ddst);
     }
     /** [TODO:] the frame is assumed to be inside global bounds,
                 however it might exceed them in some GIFs; fix me. **/
-    /** [TODO:] add GIF_PREV support; not widely used, but anyway. **/
-    pict = (uint32_t*)stat->draw;
+    pict = (uint32_t*)stat->pict;
     ddst = (uint32_t)(whdr->xdim * whdr->fryo + whdr->frxo);
     ifin = (!(iter = (whdr->intr)? 0 : 4))? 4 : 5; /** interlacing support **/
     for (dsrc = (uint32_t)-1; iter < ifin; iter++)
@@ -226,9 +226,21 @@ void Frame(void *data, GIF_WHDR *whdr) {
                     pict[(uint32_t)whdr->xdim * y + x + ddst] = BGRA(dsrc);
     write(stat->uuid, pict, sizeof(uint32_t) * (uint32_t)whdr->xdim
                                              * (uint32_t)whdr->ydim);
+    if ((whdr->mode == GIF_PREV) && !stat->last) {
+        whdr->frxd = whdr->xdim;
+        whdr->fryd = whdr->ydim;
+        whdr->mode = GIF_BKGD;
+        ddst = 0;
+    }
+    else {
+        stat->last = (whdr->mode == GIF_PREV)? stat->last : (whdr->ifrm + 1);
+        pict = (uint32_t*)((whdr->mode == GIF_PREV)? stat->pict : stat->prev);
+        prev = (uint32_t*)((whdr->mode == GIF_PREV)? stat->prev : stat->pict);
+        for (x = whdr->xdim * whdr->ydim; --x; pict[x - 1] = prev[x - 1]);
+    }
     if (whdr->mode == GIF_BKGD) /** cutting a hole for the next frame **/
-        for (whdr->bptr[0] = (whdr->tran >= 0)? whdr->tran : whdr->bkgd,
-             y = 0; y < (uint32_t)whdr->fryd; y++)
+        for (whdr->bptr[0] = (whdr->tran >= 0)? whdr->tran : whdr->bkgd, y = 0,
+             pict = (uint32_t*)stat->pict; y < (uint32_t)whdr->fryd; y++)
             for (x = 0; x < (uint32_t)whdr->frxd; x++)
                 pict[(uint32_t)whdr->xdim * y + x + ddst] = BGRA(0);
     #undef BGRA
@@ -250,7 +262,8 @@ int main(int argc, char *argv[]) {
         stat.uuid = open(argv[argc - 1], O_CREAT | O_WRONLY | O_BINARY, 0644);
         if (stat.uuid > 0) {
             GIF_Load(stat.data, (long)stat.size, Frame, 0, (void*)&stat, 0L);
-            stat.draw = realloc(stat.draw, 0L);
+            stat.pict = realloc(stat.pict, 0L);
+            stat.prev = realloc(stat.prev, 0L);
             close(stat.uuid);
             stat.uuid = 0;
         }
