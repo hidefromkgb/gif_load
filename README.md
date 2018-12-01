@@ -65,8 +65,9 @@ proxy that is discarded after every call):
                        [`GIF_BKGD`:] restore the background color (or
                        transparency, in case `GIF_WHDR::tran` ≠ −1) in the
                        boundaries of the current frame; [`GIF_PREV`:] restore
-                       the image state that used to be before it was blended
-                       with the current frame; *N.B.:* if right before a
+                       the last image whose mode differed from this one,
+                       functionally equivalent to `GIF_BKGD` when assigned to
+                       the first frame in a GIF; *N.B.:* if right before a
                        `GIF_PREV` frame came a `GIF_BKGD` one, the state to
                        be restored is before a certain part of the resulting
                        image was filled with the background color, not after!
@@ -304,9 +305,15 @@ def GIF_Load(file):
         ("bptr", PT(c_ubyte)), ("cpal", PT(c_ubyte))]
     def intr(y, x, w, base, tran): base.paste(tran.crop((0, y, x, y + 1)), w)
     def skew(i, r): return r >> ((7 - (i & 2)) >> (1 + (i & 1)))
+    def fill(w, d, p):
+        retn = Image.new("L", d, w.bkgd) if (w.tran < 0) else \
+               Image.new("RGBA", d)
+        if (w.tran < 0):
+            retn.putpalette(p)
+        return retn
     def WriteFunc(d, w):
         cpal = string_at(w[0].cpal, w[0].clrs * 3)
-        list = d.contents.value
+        list = d.contents.value[0]
         if (len(list) == 0):
             list.append(Image.new("RGBA", (w[0].xdim, w[0].ydim)))
         tail = len(list) - 1
@@ -321,26 +328,26 @@ def GIF_Load(file):
         list[tail].paste(base, (w[0].frxo, w[0].fryo), tran)
         list[tail].info = {"delay" : w[0].time}
         if (w[0].ifrm != (w[0].nfrm - 1)):
-            list.append(list[max(0, tail - int(w[0].mode == 3))].copy())
+            trgt = (tail, d.contents.value[1])[w[0].mode == 3]
+            list.append(list[trgt].copy() if (trgt >= 0) else
+                        fill(w[0], (w[0].xdim, w[0].ydim), cpal))
+            if (w[0].mode != 3):
+                d.contents.value[1] = w[0].ifrm
             if (w[0].mode == 2):
-                if (w[0].tran >= 0):
-                    base = Image.new("RGBA", (w[0].frxd, w[0].fryd))
-                else:
-                    base = Image.new("L", (w[0].frxd, w[0].fryd), w[0].bkgd)
-                    base.putpalette(cpal)
-                list[tail + 1].paste(base, (w[0].frxo, w[0].fryo))
+                list[tail + 1].paste(fill(w[0], (w[0].frxd, w[0].fryd), cpal),
+                                                (w[0].frxo, w[0].fryo))
     try: file = open(file, "rb")
     except IOError: return []
     file.seek(0, 2)
     size = file.tell()
     file.seek(0, 0)
-    list = []
+    list = [[], -1]
     CDLL(("%s.so", "%s.dll")[system() == "Windows"] % "./gif_load"). \
     GIF_Load(file.read(), size,
              CFUNCTYPE(None, PT(py_object), PT(GIF_WHDR))(WriteFunc),
              None, pointer(py_object(list)), 0)
     file.close()
-    return list
+    return list[0]
 
 def GIF_Save(file, fext):
     list = GIF_Load("%s.gif" % file)
