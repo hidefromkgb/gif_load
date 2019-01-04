@@ -209,7 +209,7 @@ void Frame(void *data, struct GIF_WHDR *whdr) {
         head[16] = 32;   /** 32 bits depth **/
         head[17] = 0x20; /** top-down flag **/
         write(stat->uuid, head, 18UL);
-        ddst = whdr->xdim * whdr->ydim;
+        ddst = (uint32_t)(whdr->xdim * whdr->ydim);
         stat->pict = calloc(sizeof(uint32_t), ddst);
         stat->prev = calloc(sizeof(uint32_t), ddst);
     }
@@ -233,13 +233,16 @@ void Frame(void *data, struct GIF_WHDR *whdr) {
         ddst = 0;
     }
     else {
-        stat->last = (whdr->mode == GIF_PREV)? stat->last : (whdr->ifrm + 1);
+        stat->last = (whdr->mode == GIF_PREV)?
+                      stat->last : (unsigned long)(whdr->ifrm + 1);
         pict = (uint32_t*)((whdr->mode == GIF_PREV)? stat->pict : stat->prev);
         prev = (uint32_t*)((whdr->mode == GIF_PREV)? stat->prev : stat->pict);
-        for (x = whdr->xdim * whdr->ydim; --x; pict[x - 1] = prev[x - 1]);
+        for (x = (uint32_t)(whdr->xdim * whdr->ydim); --x;
+             pict[x - 1] = prev[x - 1]);
     }
     if (whdr->mode == GIF_BKGD) /** cutting a hole for the next frame **/
-        for (whdr->bptr[0] = (whdr->tran >= 0)? whdr->tran : whdr->bkgd, y = 0,
+        for (whdr->bptr[0] = (uint8_t)((whdr->tran >= 0)?
+                                        whdr->tran : whdr->bkgd), y = 0,
              pict = (uint32_t*)stat->pict; y < (uint32_t)whdr->fryd; y++)
             for (x = 0; x < (uint32_t)whdr->frxd; x++)
                 pict[(uint32_t)whdr->xdim * y + x + ddst] = BGRA(0);
