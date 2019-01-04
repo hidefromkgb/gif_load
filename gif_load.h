@@ -46,7 +46,7 @@ extern "C" {
 #define _GIF_SWAP(h) ((GIF_BIGE)? ((uint16_t)(h << 8) | (h >> 8)) : h)
 
 #pragma pack(push, 1)
-typedef struct {                 /** ======== frame writer info: ======== **/
+struct GIF_WHDR {                /** ======== frame writer info: ======== **/
     long xdim, ydim, clrs,       /** global dimensions, palette size      **/
          bkgd, tran,             /** background index, transparent index  **/
          intr, mode,             /** interlace flag, frame blending mode  **/
@@ -56,7 +56,7 @@ typedef struct {                 /** ======== frame writer info: ======== **/
     struct {                     /** [==== GIF RGB palette element: ====] **/
         uint8_t R, G, B;         /** [color values - red, green, blue   ] **/
     } *cpal;                     /** current palette                      **/
-} GIF_WHDR;
+};
 #pragma pack(pop)
 
 enum {GIF_NONE = 0, GIF_CURR = 1, GIF_BKGD = 2, GIF_PREV = 3};
@@ -159,8 +159,10 @@ static long _GIF_LoadFrame(uint8_t **buff, long *size, uint8_t *bptr) {
     ANIM: implementation-specific data (e.g. a structure or a pointer to it)
     SKIP: number of frames to skip before resuming
  **/
-GIF_EXTR long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
-                       void (*eamf)(void*, GIF_WHDR*), void *anim, long skip) {
+GIF_EXTR long GIF_Load(void *data, long size,
+                       void (*gwfr)(void*, struct GIF_WHDR*),
+                       void (*eamf)(void*, struct GIF_WHDR*),
+                       void *anim, long skip) {
     const long    GIF_BLEN = (1 << 12) * sizeof(uint32_t);
     const uint8_t GIF_EHDM = 0x21, /** extension header mark              **/
                   GIF_FHDM = 0x2C, /** frame header mark                  **/
@@ -210,7 +212,7 @@ GIF_EXTR long GIF_Load(void *data, long size, void (*gwfr)(void*, GIF_WHDR*),
         uint8_t tran;        /** transparent color index                  **/
     } *egch = 0;
     #pragma pack(pop)
-    GIF_WHDR wtmp, whdr = {0};
+    struct GIF_WHDR wtmp, whdr = {0};
     long desc, blen;
     uint8_t *buff;
 

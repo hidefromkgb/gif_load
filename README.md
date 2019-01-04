@@ -41,7 +41,7 @@ this callback is optional.
 Both frame writer callback and metadata callback need 2 parameters:
 
 1. callback-specific data
-2. pointer to a `GIF_WHDR` structure that encapsulates GIF frame information
+2. pointer to a `struct GIF_WHDR` that encapsulates GIF frame information
 (callbacks may alter any fields at will, as the structure passed to them is a
 proxy that is discarded after every call):
   * `GIF_WHDR::xdim` - global GIF width, always constant across frames
@@ -185,8 +185,8 @@ typedef struct {
 } STAT; /** #pragma avoids -Wpadded on 64-bit machines **/
 #pragma pack(pop)
 
-void Frame(void*, GIF_WHDR*); /** keeps -Wmissing-prototypes happy **/
-void Frame(void *data, GIF_WHDR *whdr) {
+void Frame(void*, struct GIF_WHDR*); /** keeps -Wmissing-prototypes happy **/
+void Frame(void *data, struct GIF_WHDR *whdr) {
     uint32_t *pict, *prev, x, y, yoff, iter, ifin, dsrc, ddst;
     uint8_t head[18] = {0};
     STAT *stat = (STAT*)data;
