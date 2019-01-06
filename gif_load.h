@@ -233,7 +233,7 @@ GIF_EXTR long GIF_Load(void *data, long size,
     whdr.xdim = _GIF_SWAP(ghdr->xdim);
     whdr.ydim = _GIF_SWAP(ghdr->ydim);
     for (whdr.bptr = buff, whdr.bkgd = ghdr->bkgd, blen = --size;
-       ((desc = *whdr.bptr++) != GIF_EOFM) && (blen >= 0); /** sic: '>= 0' **/
+        (blen >= 0) && ((desc = *whdr.bptr++) != GIF_EOFM); /** sic: '>= 0' **/
          blen = _GIF_SkipChunk(&whdr.bptr, blen) - 1) /** count all frames **/
         if (desc == GIF_FHDM) {
             fhdr = (struct GIF_FHDR*)whdr.bptr;
@@ -249,8 +249,8 @@ GIF_EXTR long GIF_Load(void *data, long size,
     blen = whdr.frxo * whdr.fryo * (long)sizeof(*whdr.bptr);
     GIF_MGET(whdr.bptr, (unsigned long)(blen + GIF_BLEN + 2), anim, 1)
     whdr.nfrm = (desc != GIF_EOFM)? -whdr.ifrm : whdr.ifrm;
-    for (whdr.bptr += GIF_BLEN, whdr.ifrm = -1; /** load all frames **/
-        (skip < ((whdr.nfrm < 0)? -whdr.nfrm : whdr.nfrm)) && (size >= 0);
+    for (whdr.bptr += GIF_BLEN, whdr.ifrm = -1; blen /** load all frames **/
+     && (skip < ((whdr.nfrm < 0)? -whdr.nfrm : whdr.nfrm)) && (size >= 0);
          size = (desc != GIF_EOFM)? ((desc != GIF_FHDM) || (skip > whdr.ifrm))?
                 _GIF_SkipChunk(&buff, size) - 1 : size - 1 : -1)
         if ((desc = *buff++) == GIF_FHDM) { /** found a frame **/
