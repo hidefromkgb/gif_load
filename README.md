@@ -10,7 +10,7 @@ blah blah. See the header file for details.
 
 There are no strict dependencies on the standard C library. The only external
 function used by default is `realloc()` (both for freeing and allocation), but
-it\`s possible to override it by defining a macro called `GIF_MGET(m,s,a,c)`
+it's possible to override it by defining a macro called `GIF_MGET(m,s,a,c)`
 prior to including the header; `m` stands for a `uint8_t*`-typed pointer to
 the memory block being allocated or freed, `s` is the target block size, typed
 `unsigned long`, `a` is the value of the fifth parameter passed to `GIF_Load()`
@@ -49,7 +49,11 @@ proxy that is discarded after every call):
   * `GIF_WHDR::ydim` - global GIF height, ACAF; [0; 65535]
   * `GIF_WHDR::clrs` - number of colors in the current palette (local palettes
                        are not that rare so it may vary across frames, further
-                       referred to as 'MVAF'); {2; 4; 8; 16; 32; 64; 128; 256}
+                       referred to as 'MVAF'); {2; 4; 8; 16; 32; 64; 128; 256},
+                       or 0 when the GIF carries no palette at all, which the
+                       standard permits: such frames still decode, and what
+                       to make of bare pixel indices is then entirely up to
+                       the caller
   * `GIF_WHDR::bkgd` - 0-based background color index for the current palette,
                        ACAF (sic ACAF, as this index is set globally)
   * `GIF_WHDR::tran` - 0-based transparent color index for the current palette
@@ -98,12 +102,13 @@ proxy that is discarded after every call):
                        AVAF
   * `GIF_WHDR::cpal` - the current palette containing 3 `uint8_t` values for
                        each of the colors: `R` for the red channel, `G` for
-                       green and `B` for blue; this pointer is guaranteed
-                       to be the same across frames if and only if the global
-                       palette is used for those frames (local palettes are
-                       strictly frame-specific, even when they contain the
-                       same number of identical colors in identical order),
-                       MVAF
+                       green and `B` for blue (can be 0 when the GIF carries no
+                       palette, in which case `GIF_WHDR::clrs` is 0 too); this
+                       pointer is guaranteed to be the same across frames if
+                       and only if the global palette is used for those frames
+                       (local palettes are strictly frame-specific, even when
+                       they contain the same number of identical colors in
+                       identical order), MVAF
 
 Neither of the two callbacks needs to return a value, thus having `void` for
 a return type.
@@ -133,11 +138,15 @@ of frames in the animation and indicates that the GIF data stream ended with
 a proper termination mark. Negative return value is the number of frames
 loaded per current call multiplied by −1, suggesting that the GIF data stream
 being decoded is still incomplete. Zero, in its turn, means that the call
-could not decode any more frames.
+could not decode any more frames. It is also what gets returned when `GIF_MGET`
+fails to hand out the frame buffer, which holds the largest single frame of the
+animation and can therefore be asked to be as large as 65535 × 65535 bytes: no
+cap of its own is imposed on that size, so what can be decoded is limited by
+the available memory alone, even with 32-bit builds.
 
 `gif_load` is endian-aware. If the target machine can be big-endian the user
 has to determine that manually and add `#define GIF_BIGE 1` to the source
-prior to the header being included if that\`s the case, or otherwise define
+prior to the header being included if that's the case, or otherwise define
 the endianness to be used (0 = little, 1 = big), e.g. by declaring a helper
 function and setting `GIF_BIGE` to expand into its call, or by passing it as a
 compiler parameter (e.g. `-DGIF_BIGE=1` for GCC / Clang). Although GIF data is
@@ -147,8 +156,8 @@ the target machine, provided that `GIF_BIGE` is set correctly. Most other
 data, e.g. pixel indices of a frame, consists of single bytes and thus does
 not require endianness correction. One notable exception is GIF application
 metadata which is passed as the raw chunk of bytes (for details see the
-description of `GIF_WHDR::bptr` provided above), and then it\`s the
-callback\`s job to parse it and decide whether to decode and how to do that.
+description of `GIF_WHDR::bptr` provided above), and then it's the
+callback's job to parse it and decide whether to decode and how to do that.
 
 There is a possibility to build `gif_load` as a shared library. `GIF_EXTR` is
 a convenience macro to be defined so that the `GIF_Load()` function gets an
@@ -197,7 +206,7 @@ void Frame(void *data, struct GIF_WHDR *whdr) {
          | (uint32_t)(whdr->cpal[whdr->bptr[i]].B << ((GIF_BIGE)? 24 : 0)) \
          | ((GIF_BIGE)? 0xFF : 0xFF000000)))
     if (!whdr->ifrm) {
-        /** TGA doesn`t support heights over 0xFFFF, so we have to trim: **/
+        /** TGA doesn't support heights over 0xFFFF, so we have to trim: **/
         whdr->nfrm = ((whdr->nfrm < 0)? -whdr->nfrm : whdr->nfrm) * whdr->ydim;
         whdr->nfrm = (whdr->nfrm < 0xFFFF)? whdr->nfrm : 0xFFFF;
         /** this is the very first frame, so we must write the header **/
