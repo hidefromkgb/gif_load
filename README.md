@@ -381,3 +381,102 @@ def GIF_Save(file, fext):
 
 GIF_Save("insert_gif_name_here_without_extension", "png")
 ```
+
+
+
+# Performance
+*Take everything below with a grain of salt.*
+
+The GIFs participating in these measurements are synthetic; 3 are flat shapes
+that compress roughly like a real GIF would, the other 3 incompressible noise
+which is the worst possible case, never found in the wild but useful for
+establishing a performance baseline. Basically, these cases compare different
+parts of the decoder: shapes mostly compare un-LZW speed, noise mostly compares
+I/O efficiency. The tables name GIFs by size and type (S = shapes, N = noise):
+
+* 320x240, 100 frames: shapes 0.7 MB, noise 10 MB
+* 640x480, 200 frames: shapes 6 MB, noise 81 MB
+* 1920x1080, 150 frames: shapes 50 MB, noise 408 MB
+
+The harness that produced the numbers is not published, so none of this is
+reproducible from this repository. The specs of the machine are as follows:
+
+* OS: Linux 6.4
+* Compiler: GCC 11.5 at `-O2`
+* RAM access latency: 128 ns
+* Single-core sequential RAM read: 8 GB/s
+* Single-core sequential RAM copy: 1.8 GB/s
+* EXT4 cold-cache disk read: 342 MB/s
+
+Compared against [giflib](https://giflib.sourceforge.net/) 5.2.2 and
+[stb_image](https://github.com/nothings/stb), decoding every frame. As
+`GIF_Load()` takes a pointer, the file must be in memory first, by `read()`
+or `mmap()`; both are shown. `+RGBA` also composites, as `stb_image` always
+does. The outputs of other libraries agreed with that of `gif_load` bit for
+bit, though only because none of the GIFs were interlaced, which `DGifSlurp()`
+straigtens but `gif_load` considers the caller's responsibility.
+
+Peak resident memory, and how much of it is anonymous, in MB:
+
+|case         | 240p S| 240p N|   480p S|   480p N|    1080p S|    1080p N|
+|:------------|------:|------:|--------:|--------:|----------:|----------:|
+|`read`       |  0 / 0|  9 / 9|    6 / 6|  81 / 81|    52 / 51|  409 / 409|
+|`mmap`       |  2 / 0| 11 / 0|    8 / 0|   81 / 0|     52 / 2|    411 / 2|
+|`read` +RGBA |  0 / 0|  9 / 9|    8 / 8|  81 / 81|    60 / 60|  416 / 416|
+|`mmap` +RGBA |  2 / 0| 11 / 0|    8 / 0|   81 / 0|     60 / 9|    418 / 9|
+|giflib stream|  0 / 0|  0 / 0|    0 / 0|    0 / 0|      0 / 0|      0 / 0|
+|giflib slurp |  8 / 8|  8 / 8|  58 / 58|  58 / 58|  296 / 296|  296 / 296|
+|stb_image    |30 / 30|39 / 39|242 / 242|317 / 317|1254 / 1239|1611 / 1595|
+
+The second figure is what costs something: anonymous pages need swap to go
+anywhere, file-backed ones can just be dropped. Sampling is quantized to about
+1.9 MB, hence the zeroes; the page cache is in none of these numbers.
+
+`gif_load` asks `GIF_MGET` for one frame plus the 16 KB code table, in the same
+manner for all GIFs, regardless of frame count. The pairs show what the others
+keep: `giflib slurp` needs as much for noise as for shapes, holding pixels but
+not the file data, `stb_image` holds both, `giflib stream` holds a single row —
+which is optimal memory-wise, there's no beating it. Also `gif_load` keeps the
+file twice with `read()` (kernel pages + anonymous), which an `mmap()` avoids.
+
+Wall time in milliseconds, best of two runs, same order:
+
+|case (cold)  |240p S|240p N|480p S|480p N|1080p S|1080p N|
+|:------------|-----:|-----:|-----:|-----:|------:|------:|
+|`read`       |    26|    64|   176|   512|    767|   2554|
+|`mmap`       |    27|    77|   182|   583|    812|   2929|
+|`read` +RGBA |    28|    66|   194|   513|    856|   2614|
+|`mmap` +RGBA |    29|    78|   199|   596|    896|   3006|
+|giflib stream|    37|    58|   266|   457|   1157|   2302|
+|giflib slurp |    39|    60|   286|   485|   1277|   2439|
+|stb_image    |    54|    84|   409|   675|   1922|   3453|
+
+|case (warm)  |240p S|240p N|480p S|480p N|1080p S|1080p N|
+|:------------|-----:|-----:|-----:|-----:|------:|------:|
+|`read`       |    23|    42|   163|   350|    668|   1756|
+|`mmap`       |    23|    38|   161|   315|    645|   1609|
+|`read` +RGBA |    25|    44|   178|   359|    756|   1888|
+|`mmap` +RGBA |    25|    41|   178|   332|    732|   1795|
+|giflib stream|    36|    55|   263|   447|   1149|   2295|
+|giflib slurp |    38|    58|   282|   471|   1269|   2396|
+|stb_image    |    50|    61|   391|   520|   1829|   2688|
+
+Timing starts before the file is acquired, so whoever reads it pays here.
+`giflib` hardly notices the cache, ±2% at every size, as it reads the GIF while
+decoding which hides I/O latency behind compute. `gif_load` is architecturally
+incapable of that: the GIF must be read in full before the first pixel (see how
+the frame-counting step is 100% I/O and 0% compute), making the read additive.
+
+With the kernel file cache warm, `gif_load` wins everywhere: 1.3x–1.7x against
+`giflib`, and 1.4x–2.5x against `stb_image` (but re-reading GIFs while cached
+is not common in day-to-day use). With the cache cold, it's 1.3x–1.5x for all 3
+shapes (closest thing to a real GIF) and 0.83x–0.85x with the 3 noisy ones —
+both figures vs `giflib`, as `stb_image` is slower than `gif_load` even here.
+
+Warm `mmap()` wins overall, as `read()` still copies out of the page cache.
+`madvise()` doesn't make cold `mmap()` warm, hence the cold / warm distinction.
+Cold `read()` wins on readahead.
+
+P.S.: The 1.3x–1.5x cold-cache performance claim vs `giflib` holds pretty well
+on real images from https://giphy.com/ — which looks like a good enough source
+of GIF samples for performance benchmarking.
