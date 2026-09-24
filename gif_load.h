@@ -287,7 +287,7 @@ GIF_EXTR long GIF_Load(void *data, long size,
                 eamf(anim, &wtmp);
             }
         }
-    whdr.bptr -= GIF_BLEN; /** for excess pixel codes ----v (here & above) **/
+    whdr.bptr -= GIF_BLEN; /** v-- +2 for excess pixel codes (here & above) **/
     GIF_MGET(whdr.bptr, fmax + GIF_BLEN + 2, anim, 0)
     return (whdr.nfrm < 0) ? (skip - whdr.ifrm - 1) : (whdr.ifrm + 1);
 }
