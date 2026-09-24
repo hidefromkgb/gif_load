@@ -92,7 +92,13 @@ proxy that is discarded after every call):
                        across frames (further referred to as 'AVAF')
   * `GIF_WHDR::nfrm` - total frame count, negative if the GIF data supplied
                        is incomplete, ACAF during a single `GIF_Load()` call
-                       but may vary across `GIF_Load()` calls
+                       but may vary across `GIF_Load()` calls; *N.B.:* when
+                       negative it is an upper bound rather than a promise,
+                       as it counts the frame headers the loader could find
+                       while scanning, and a GIF cut short inside a frame's
+                       pixel data still contributes its header to that count
+                       while never reaching the frame writer. What did get
+                       decoded is what `GIF_Load()` returns
   * `GIF_WHDR::bptr` - [frame writer:] pixel indices for the current frame,
                        ACAF (it is only the pointer address that is constant;
                        the pixel indices stored inside = MVAF); [metadata
@@ -417,7 +423,10 @@ with a cold and a warm page cache. `+RGBA` additionally composites every frame
 onto a full canvas, which is what a GIF player would do, and what `stb_image`
 always does. `giflib stream` is its `DGifGetLine()` loop, `giflib slurp` its
 `DGifSlurp()`, the way most callers use it. All of the palette-index decoders
-agreed bit for bit on every file.
+agreed bit for bit on every file, though only because none of those five was
+interlaced: `DGifSlurp()` puts interlaced rows where they belong, whereas
+`gif_load` and `DGifGetLine()` both hand them over in the order the file
+stores them, deinterlacing being the caller's business.
 
 Peak resident memory, and how much of it is anonymous, in MB:
 
@@ -482,3 +491,12 @@ better readahead than page faults do, 2674 ms against 2975 ms on the 407 MB
 file, where merely reading those bytes off this machine's disk takes 1190 ms
 on its own. `madvise()` barely helps there — `MADV_WILLNEED` came to 2954 ms
 and `MADV_POPULATE_READ` to 2822 ms.
+
+
+
+# Accuracy tests
+`tests/run.sh` decodes a handful of real GIFs and hand-crafted synthetic GIFs,
+and then compares the result with a known-good one, then rechecks the same
+files under valgrind if it is installed. It needs nothing but a C compiler and
+a POSIX shell; see [tests/README.md](tests/README.md) for more info on what
+each of the synthetic GIFs is there for.

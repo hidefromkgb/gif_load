@@ -1,4 +1,6 @@
-# Ignore everything except the main header and its readme
+# Ignore everything except the main header, its readme and the test suite
 *
 !gif_load.h
 !README.md
+!tests/
+!tests/**

@@ -1,0 +1,10 @@
+# The default GIF_MGET releases the frame buffer through realloc(m, 0), which
+# valgrind reports even though both C89 and C99 allow it. Callers that target
+# C23, where the construct became undefined, are expected to supply their own
+# GIF_MGET; see the README.
+{
+   gif_load_frees_through_realloc_with_zero_size
+   Memcheck:ReallocZero
+   fun:realloc
+   ...
+}

@@ -1,0 +1,56 @@
+### extradata.gif
+return 0
+### gif87a.gif
+frame 0/2 2x2 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=7c5d140b pal=9fd8fc3f
+frame 1/2 2x2 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=cd8fcf51 pal=9fd8fc3f
+return 2
+### hiddendata.gif
+frame 0/1 2x2 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=7c5d140b pal=9fd8fc3f
+return 1
+### interlaced.gif
+frame 0/1 64x64 +0+0 intr=1 clrs=256 tran=-1 mode=0 time=0 hash=c5c88649 pal=7256b385
+return 1
+### localpal.gif
+frame 0/1 2x2 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=7c5d140b pal=9fd8fc3f
+return 1
+### mangled.gif
+frame 0/1 2x2 +0+0 intr=0 clrs=256 tran=-1 mode=0 time=0 hash=7c5da049 pal=2840a385
+return 1
+### manyclears.gif
+frame 0/1 2x2 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=7c5d140b pal=9fd8fc3f
+return 1
+### nohdr.gif
+return 0
+### nopal.gif
+frame 0/1 2x2 +0+0 intr=0 clrs=0 tran=-1 mode=0 time=0 hash=7c5d140b pal=none
+return 1
+### normal.gif
+frame 0/2 4x4 +0+0 intr=0 clrs=4 tran=2 mode=2 time=7 hash=b92b159d pal=9fd8fc3f
+frame 1/2 4x4 +0+0 intr=0 clrs=4 tran=-1 mode=1 time=9 hash=28dc4b35 pal=71300680
+return 2
+### nulcomment.gif
+frame 0/1 2x2 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=7c5ebd4b pal=9fd8fc3f
+return 1
+### overflow.gif
+frame 0/2 65535x1 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=3ebf0865 pal=9fd8fc3f
+frame 1/2 1x65535 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=c9bd0fc5 pal=9fd8fc3f
+return 2
+### short.gif
+frame 0/1 16x16 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=846058e6 pal=9fd8fc3f
+return 1
+### stale.gif
+frame 0/2 4x4 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=ab8fec35 pal=9fd8fc3f
+frame 1/2 4x4 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=3938dc16 pal=9fd8fc3f
+return 2
+### staletbl.gif
+frame 0/2 512x512 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=5a801505 pal=9fd8fc3f
+frame 1/2 2x2 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=16dda049 pal=9fd8fc3f
+return 2
+### straddle.gif
+frame 0/1 5x1 +0+0 intr=0 clrs=256 tran=-1 mode=0 time=0 hash=0811a96a pal=2840a385
+return 1
+### truncated.gif
+frame 0/-1 4x4 +0+0 intr=0 clrs=4 tran=2 mode=2 time=7 hash=b92b159d pal=9fd8fc3f
+return -1
+### zerowidth.gif
+return 0
