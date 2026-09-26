@@ -127,21 +127,18 @@ static long _GIF_LoadFrame(
                         code[ctbl] = (uint32_t)prev + (code[prev] & 0xFFF000);
                     } /** appending SP / MP decoded pixels to the frame **/
                     prev = (long)code[iter = (ctbl > curr) ? curr : prev];
-                    if ((bptr += (prev = (prev >> 12) & 0xFFF)) > blen) {
-                        bptr -= prev;
+                    if (bptr + (prev = (prev >> 12) & 0xFFF) > blen)
                         continue; /** skipping pixels above frame capacity **/
-                    }
-                    for (prev++; (iter &= 0xFFF) >> ctsz;
+                    for (bptr += prev++; (iter &= 0xFFF) >> ctsz;
                         *bptr-- = (uint8_t)((iter = (long)code[iter]) >> 24));
                     (bptr += prev)[-prev] = (uint8_t)iter;
-                    if (ctbl < GIF_CLEN) { /** appending the code table **/
-                        if (ctbl == curr)
-                            *bptr++ = (uint8_t)iter;
-                        else if (ctbl < curr)
-                            return -5; /** wrong code in the stream **/
-                        code[ctbl++] += ((uint32_t)iter << 24) + 0x1000;
-                    }
-                }
+                    if (ctbl >= GIF_CLEN) continue; /** skip if table full **/
+                    if (ctbl == curr)
+                        *bptr++ = (uint8_t)iter;
+                    else if (ctbl < curr)
+                        return -5; /** wrong code in the stream **/
+                    code[ctbl++] += ((uint32_t)iter << 24) + 0x1000;
+                } /** ^--- appending the code table **/
     for (; bptr < blen; *bptr++ = 0); /** N.B.: 'no ED found' is okay-ish **/
     return (++(*size) >= 0) ? 0 : -4; /** <-- 0: no ED found; -4: see above **/
 }
