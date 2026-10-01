@@ -278,7 +278,7 @@ GIF_EXTR long GIF_Load(void *data, long size,
                 wtmp = whdr;
                 gwfr(anim, &wtmp); /** passing the frame to the caller **/
             }
-        } else if (mark == GIF_EHDM) { /** found an extension **/
+        } else if ((mark == GIF_EHDM) && (size > 0)) { /** found an ext. **/
             if (*buff == GIF_EGCM) { /** graphics control ext. **/
                 egch = (struct GIF_EGCH*)(buff + 1 + 1);
             } else if ((*buff == GIF_EAMM) && eamf) { /** app metadata ext. **/

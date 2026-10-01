@@ -1,3 +1,6 @@
+### emptyext.gif
+frame 0/-1 2x2 +0+0 intr=0 clrs=0 tran=-1 mode=0 time=0 hash=7c5d13c6 pal=none
+return -1
 ### extradata.gif
 return 0
 ### gif87a.gif
