@@ -37,6 +37,7 @@ run anywhere.
 | `stale.gif` | a full 4x4 frame followed by one that decodes a single pixel: the 15 that are missing must come back as zeroes, not as the pixels the previous frame left in the buffer |
 | `straddle.gif` | a 5x1 frame whose last string runs past its final pixel: such a string is skipped whole, and the pixels it would have covered have to be padded rather than left as they were |
 | `nohdr.gif` | a GIF that ends on the frame marker, with none of the nine header bytes after it: reading the flags out of a header that is not there runs past the end of the caller buffer, and segfaults when the data ends on a page boundary |
+| `emptyext.gif` | a GIF that ends on the extension header marker, resulting in a 1-byte out-of-bounds read if there's no size check; only visible in valgrind |
 | `zerowidth.gif` | a frame that declares no width at all: it carries no pixel the caller could ever look at, and must not upset the file around it |
 | `localpal.gif` | no global palette, but a local one, so the loader has to fall back to the palette that is actually there |
 | `nulcomment.gif` | a comment holding a NUL byte: sub-blocks are walked by length, so a zero inside one is data rather than the end of the chain |
