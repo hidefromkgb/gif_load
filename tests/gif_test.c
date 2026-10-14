@@ -11,6 +11,8 @@
 typedef struct {
     FILE *dump;
     unsigned long hash;
+    uint8_t *data;
+    long size;
 } STAT;
 
 static unsigned long Hash(unsigned long hash, const uint8_t *bptr, long size) {
@@ -46,10 +48,34 @@ static void Frame(void *data, struct GIF_WHDR *whdr) {
 }
 
 static void Meta(void *data, struct GIF_WHDR *whdr) {
-    (void)data;
-    printf("meta %c%c%c%c%c%c%c%c\n", whdr->bptr[0], whdr->bptr[1],
-           whdr->bptr[2], whdr->bptr[3], whdr->bptr[4], whdr->bptr[5],
-           whdr->bptr[6], whdr->bptr[7]);
+    STAT *stat = (STAT*)data;
+    long left = (long)(stat->data + stat->size - whdr->bptr), iter, frst, last;
+
+    /** the loader hands over the chunk as is, truncated or not, so the
+        callback walks it within the bounds of the GIF data: an 8-byte
+        identifier, which GIF89a restricts to printable ASCII and which is
+        fixed-width, hence printed verbatim; a 3-byte auth code that can be
+        anything, hence dumped in hex; then sub-blocks up to the empty one
+        that ends them, each of which is dumped in hex too **/
+    left = (left > 0) ? left : 0;
+    for (iter = 0; (iter < 8) && (iter < left); iter++)
+        if ((whdr->bptr[iter] < 0x20) || (whdr->bptr[iter] > 0x7E)) {
+            printf("meta (invalid identifier)\n");
+            return;
+        }
+    printf("meta");
+    if (iter > 0)
+        printf(" %.*s", (int)iter, (const char*)whdr->bptr);
+    for (iter = 8; (iter < 11) && (iter < left); iter++)
+        printf(" %02X", whdr->bptr[iter]);
+    for (iter = 11; (iter < left) && whdr->bptr[iter]; iter = last) {
+        last = iter + 1 + whdr->bptr[iter];
+        printf(" [");
+        for (frst = ++iter; (iter < last) && (iter < left); iter++)
+            printf("%s%02X", (iter > frst) ? " " : "", whdr->bptr[iter]);
+        printf("]");
+    }
+    printf("%s\n", (iter < left) ? "" : " (truncated)");
 }
 
 int main(int argc, char *argv[]) {
@@ -71,6 +97,8 @@ int main(int argc, char *argv[]) {
     if (argc > 2)
         stat.dump = fopen(argv[2], "wb");
     stat.hash = 5381uL;
+    stat.data = data;
+    stat.size = size;
     retn = GIF_Load(data, size, Frame, Meta, (void*)&stat, 0L);
     printf("return %ld\n", retn);
     if (stat.dump)

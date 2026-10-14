@@ -1,3 +1,28 @@
+### appbadid.gif
+frame 0/2 2x2 +0+0 intr=0 clrs=2 tran=-1 mode=0 time=0 hash=7c5d0f85 pal=07e36362
+meta (invalid identifier)
+frame 1/2 2x2 +0+0 intr=0 clrs=2 tran=-1 mode=0 time=0 hash=7bb3d666 pal=07e36362
+return 2
+### appcutauth.gif
+frame 0/-1 2x2 +0+0 intr=0 clrs=2 tran=-1 mode=0 time=0 hash=7c5d0f85 pal=07e36362
+meta XMP Data 01 (truncated)
+return -1
+### appcutblock.gif
+frame 0/-1 2x2 +0+0 intr=0 clrs=2 tran=-1 mode=0 time=0 hash=7c5d0f85 pal=07e36362
+meta XMP Data 01 FE 7F [3C 3F] [] (truncated)
+return -1
+### appcutid.gif
+frame 0/-1 2x2 +0+0 intr=0 clrs=2 tran=-1 mode=0 time=0 hash=7c5d0f85 pal=07e36362
+meta XMP  (truncated)
+return -1
+### appcutlabel.gif
+frame 0/-1 2x2 +0+0 intr=0 clrs=2 tran=-1 mode=0 time=0 hash=7c5d0f85 pal=07e36362
+meta (truncated)
+return -1
+### appext.gif
+frame 0/1 2x2 +0+0 intr=0 clrs=2 tran=-1 mode=0 time=0 hash=7c5d0f85 pal=07e36362
+meta XMP Data 01 FE 7F [3C 3F] [21]
+return 1
 ### emptyext.gif
 frame 0/-1 2x2 +0+0 intr=0 clrs=0 tran=-1 mode=0 time=0 hash=7c5d13c6 pal=none
 return -1

@@ -38,6 +38,12 @@ run anywhere.
 | `straddle.gif` | a 5x1 frame whose last string runs past its final pixel: such a string is skipped whole, and the pixels it would have covered have to be padded rather than left as they were |
 | `nohdr.gif` | a GIF that ends on the frame marker, with none of the nine header bytes after it: reading the flags out of a header that is not there runs past the end of the caller buffer, and segfaults when the data ends on a page boundary |
 | `emptyext.gif` | a GIF that ends on the extension header marker, resulting in a 1-byte out-of-bounds read if there's no size check; only visible in valgrind |
+| `appext.gif` | a complete application extension with a space in its identifier, a non-ASCII auth code and two sub-blocks: pins the way the driver reports metadata. The identifier is borrowed from XMP, which Adobe's XMP Specification embeds in GIF as `XMP Data` with the auth code `XMP`, but the auth code and the payload here are made up, so this is not an example of XMP or of any other real metadata |
+| `appbadid.gif` | an identifier holding a non-ASCII byte, which GIF89a forbids: the driver reports it as invalid, and the frame after it still has to decode, since the loader leaves judging metadata to the callback |
+| `appcutlabel.gif` | data ending right after the application label, so the loader hands the callback a chunk that starts past the end; a callback that does not check against the size it passed in reads out of bounds |
+| `appcutid.gif` | the chunk from `appext.gif`, cut inside the identifier: the part that is there is printed verbatim, then reported as truncated |
+| `appcutauth.gif` | the same chunk cut inside the auth code, reported as truncated after the bytes that did arrive |
+| `appcutblock.gif` | the same chunk cut right after the length byte of its second sub-block, which therefore prints as an empty dump before being reported as truncated |
 | `zerowidth.gif` | a frame that declares no width at all: it carries no pixel the caller could ever look at, and must not upset the file around it |
 | `localpal.gif` | no global palette, but a local one, so the loader has to fall back to the palette that is actually there |
 | `nulcomment.gif` | a comment holding a NUL byte: sub-blocks are walked by length, so a zero inside one is data rather than the end of the chain |

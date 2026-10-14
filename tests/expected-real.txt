@@ -1,5 +1,5 @@
 ### 1.gif
-meta NETSCAPE
+meta NETSCAPE 32 2E 30 [01 00 00]
 frame 0/155 500x500 +0+0 intr=0 clrs=128 tran=-1 mode=1 time=4 hash=e026d864 pal=fc9d9d52
 frame 1/155 17x143 +256+295 intr=0 clrs=128 tran=21 mode=1 time=4 hash=e548feff pal=fc9d9d52
 frame 2/155 10x22 +256+417 intr=0 clrs=128 tran=12 mode=1 time=4 hash=baddd1a3 pal=fc9d9d52
@@ -218,7 +218,7 @@ frame 8/10 679x960 +0+0 intr=1 clrs=256 tran=0 mode=0 time=0 hash=b8455709 pal=f
 frame 9/10 679x960 +0+0 intr=1 clrs=256 tran=0 mode=0 time=0 hash=fcdc3cca pal=21ff2d95
 return 10
 ### 48676492-ae178e80-eb5f-11e8-8b20-645fa2863b97.gif
-meta NETSCAPE
+meta NETSCAPE 32 2E 30 [01 00 00]
 frame 0/48 500x346 +0+0 intr=0 clrs=64 tran=51 mode=2 time=3 hash=f7a6205e pal=535256d6
 frame 1/48 227x254 +129+58 intr=0 clrs=64 tran=51 mode=2 time=3 hash=aee206db pal=535256d6
 frame 2/48 226x255 +126+57 intr=0 clrs=64 tran=51 mode=2 time=3 hash=6870224f pal=535256d6
@@ -269,7 +269,7 @@ frame 46/48 226x255 +130+60 intr=0 clrs=64 tran=50 mode=2 time=3 hash=eb3738fc p
 frame 47/48 226x256 +133+58 intr=0 clrs=64 tran=51 mode=1 time=3 hash=07f3e61d pal=535256d6
 return 48
 ### 48708110-84ab4100-ebf9-11e8-858f-692d32147388.gif
-meta NETSCAPE
+meta NETSCAPE 32 2E 30 [01 00 00]
 frame 0/58 234x480 +0+0 intr=0 clrs=128 tran=69 mode=2 time=4 hash=5c613678 pal=dc24d29a
 frame 1/58 234x480 +0+0 intr=0 clrs=64 tran=61 mode=2 time=4 hash=601671cd pal=513d7386
 frame 2/58 234x480 +0+0 intr=0 clrs=128 tran=64 mode=2 time=4 hash=19cea35c pal=dca835a6
@@ -330,7 +330,7 @@ frame 56/58 234x480 +0+0 intr=0 clrs=128 tran=64 mode=2 time=4 hash=d6a15d32 pal
 frame 57/58 234x480 +0+0 intr=0 clrs=64 tran=61 mode=2 time=4 hash=58308887 pal=513d7386
 return 58
 ### 49153438-a600e100-f30d-11e8-86c8-0c892cbf3f80.gif
-meta NETSCAPE
+meta NETSCAPE 32 2E 30 [01 00 00]
 frame 0/8 103x94 +25+20 intr=0 clrs=256 tran=251 mode=3 time=10 hash=2dda9560 pal=da90281b
 frame 1/8 104x98 +24+16 intr=0 clrs=256 tran=251 mode=3 time=10 hash=aa300987 pal=da90281b
 frame 2/8 147x112 +5+2 intr=0 clrs=256 tran=251 mode=3 time=10 hash=fc07f2cd pal=da90281b
@@ -516,7 +516,7 @@ frame 171/173 9x32 +208+176 intr=0 clrs=256 tran=-1 mode=1 time=0 hash=04051f93 
 frame 172/173 41x9 +176+208 intr=0 clrs=256 tran=-1 mode=1 time=0 hash=1e0ca7b6 pal=71ce616d
 return 173
 ### ahuizotl-walk-right.gif
-meta NETSCAPE
+meta NETSCAPE 32 2E 30 [01 00 00]
 frame 0/16 178x146 +0+0 intr=0 clrs=32 tran=24 mode=2 time=5 hash=ed3467c5 pal=985dc5ed
 frame 1/16 170x144 +8+2 intr=0 clrs=32 tran=24 mode=2 time=5 hash=8c3b4469 pal=985dc5ed
 frame 2/16 170x144 +8+2 intr=0 clrs=32 tran=24 mode=2 time=5 hash=902739d1 pal=985dc5ed
@@ -535,7 +535,7 @@ frame 14/16 168x144 +10+2 intr=0 clrs=32 tran=24 mode=2 time=5 hash=d1640375 pal
 frame 15/16 168x144 +10+2 intr=0 clrs=32 tran=24 mode=1 time=5 hash=05fcaa4d pal=985dc5ed
 return 16
 ### m5np.gif
-meta NETSCAPE
+meta NETSCAPE 32 2E 30 [01 00 00]
 frame 0/5 72x36 +0+0 intr=0 clrs=256 tran=-1 mode=1 time=50 hash=e74231fe pal=68d397f4
 frame 1/5 72x36 +0+0 intr=0 clrs=256 tran=1 mode=3 time=50 hash=d6a30591 pal=68d397f4
 frame 2/5 72x36 +0+0 intr=0 clrs=256 tran=1 mode=3 time=50 hash=e949db55 pal=68d397f4
@@ -543,7 +543,7 @@ frame 3/5 72x36 +0+0 intr=0 clrs=256 tran=1 mode=3 time=50 hash=00bb2cf5 pal=68d
 frame 4/5 72x36 +0+0 intr=0 clrs=256 tran=1 mode=3 time=50 hash=74efd792 pal=68d397f4
 return 5
 ### mugen.gif
-meta NETSCAPE
+meta NETSCAPE 32 2E 30 [01 00 00]
 frame 0/44 500x341 +0+0 intr=0 clrs=32 tran=22 mode=1 time=5 hash=2da178ae pal=e6b9a4e7
 frame 1/44 317x314 +0+27 intr=0 clrs=32 tran=22 mode=1 time=5 hash=cb2af909 pal=e6b9a4e7
 frame 2/44 304x307 +0+34 intr=0 clrs=32 tran=22 mode=1 time=5 hash=3b93d0b7 pal=e6b9a4e7
@@ -590,7 +590,7 @@ frame 42/44 497x341 +1+0 intr=0 clrs=32 tran=22 mode=1 time=5 hash=dfa489ff pal=
 frame 43/44 466x341 +1+0 intr=0 clrs=32 tran=22 mode=1 time=5 hash=afa98757 pal=e6b9a4e7
 return 44
 ### nailed.gif
-meta NETSCAPE
+meta NETSCAPE 32 2E 30 [01 00 00]
 frame 0/-13 260x343 +0+0 intr=0 clrs=256 tran=-1 mode=0 time=3 hash=91c5b22b pal=5e1bf64f
 frame 1/-13 260x343 +0+0 intr=0 clrs=256 tran=0 mode=0 time=6 hash=4fed6349 pal=f3325022
 frame 2/-13 260x343 +0+0 intr=0 clrs=256 tran=0 mode=0 time=3 hash=2fd15cbc pal=e7de9e93

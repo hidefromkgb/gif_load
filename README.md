@@ -104,8 +104,9 @@ proxy that is discarded after every call):
                        the pixel indices stored inside = MVAF); [metadata
                        callback:] app metadata header (8+3 bytes) followed by
                        a GIF chunk (1 byte designating length L, then L bytes
-                       of metadata, and so forth; L = 0 means end of chunk),
-                       AVAF
+                       of metadata, and so forth, L = 0 means end of chunk;
+                       it is the callback's responsibility to avoid reading out
+                       of bounds if a partial GIF ends within the chunk), AVAF
   * `GIF_WHDR::cpal` - the current palette containing 3 `uint8_t` values for
                        each of the colors: `R` for the red channel, `G` for
                        green and `B` for blue (can be 0 when the GIF carries no
@@ -420,7 +421,7 @@ Compared against [giflib](https://giflib.sourceforge.net/) 5.2.2 and
 or `mmap()`; both are shown. `+RGBA` also composites, as `stb_image` always
 does. The outputs of other libraries agreed with that of `gif_load` bit for
 bit, though only because none of the GIFs were interlaced, which `DGifSlurp()`
-straigtens but `gif_load` considers the caller's responsibility.
+straightens but `gif_load` considers the caller's responsibility.
 
 Peak resident memory, and how much of it is anonymous, in MB:
 
