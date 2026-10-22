@@ -33,6 +33,7 @@ run anywhere.
 | `normal.gif` | two 4x4 frames, global palette, delays, transparency, a local palette and `GIF_BKGD` |
 | `interlaced.gif` | one 64x64 interlaced frame of 256-color noise: exercises LZW code size growth; its pixel indices have to come back out bit for bit, see `interlaced.raw` |
 | `truncated.gif` | the first 3/5 of `normal.gif`: one frame plus a negative frame count |
+| `subcut.gif` | `normal.gif` with the second frame split into two sub-blocks, ending right after the first one: since there is no telling whether more sub-blocks would follow, the frame has to be reported as incomplete, not as decoded with its missing pixels padded, or a caller resuming with more data would skip it |
 | `short.gif` | a 16x16 frame whose LZW stream ends after a single pixel; the other 255 must read back as zeroes instead of uninitialized heap |
 | `stale.gif` | a full 4x4 frame followed by one that decodes a single pixel: the 15 that are missing must come back as zeroes, not as the pixels the previous frame left in the buffer |
 | `straddle.gif` | a 5x1 frame whose last string runs past its final pixel: such a string is skipped whole, and the pixels it would have covered have to be padded rather than left as they were |
@@ -49,7 +50,10 @@ run anywhere.
 | `nulcomment.gif` | a comment holding a NUL byte: sub-blocks are walked by length, so a zero inside one is data rather than the end of the chain |
 | `gif87a.gif` | several frames under a GIF87a signature, which has no graphics control extensions to delimit them |
 | `manyclears.gif` | a clear code before every single pixel, so the code table is dropped as often as it is grown |
-| `extradata.gif` | another sub-block after the end-of-information code, which the loader refuses: that is the only case producing its "no end-of-stream mark after ED" error |
+| `extradata.gif` | another sub-block after the end-of-information code: everything past that code is junk, so the loader skips such sub-blocks to the end-of-stream mark instead of refusing the frame |
+| `edpad.gif` | what a real encoder was caught doing: the code stream ends exactly at the end of a sub-block, and a 1-byte sub-block holding a zero follows it, so the second frame has to decode in full instead of being refused over that junk |
+| `edpadcut.gif` | `edpad.gif` cut right after the length byte of that junk sub-block: the second frame is already decoded at that point, but the junk is cut short, so the loader reports it as incomplete and only the first frame comes out |
+| `edpadnoterm.gif` | `edpad.gif` cut right after the junk sub-block, before the end-of-stream mark: here the second frame is reported as decoded, so pixel-wise the same frame survives or not depending on where the junk is cut |
 | `hiddendata.gif` | junk riding inside the very sub-block the stream ended in, which the loader accepts and steps over |
 | `staletbl.gif` | one 512x512 frame that fills the code table, then a 2x2 one that overruns its four pixels and only then names codes 4095 and 4094, which belong to the frame before it: cross-frame table state must not reach the output |
 | `mangled.gif` | a 2x2 frame carrying 8 pixels and then a code the table never defined, which the decoder ends up using as an index into that table; only valgrind catches this one, the decoded output looks the same either way |

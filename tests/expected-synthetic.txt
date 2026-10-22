@@ -23,11 +23,23 @@ return -1
 frame 0/1 2x2 +0+0 intr=0 clrs=2 tran=-1 mode=0 time=0 hash=7c5d0f85 pal=07e36362
 meta XMP Data 01 FE 7F [3C 3F] [21]
 return 1
+### edpad.gif
+frame 0/2 3x1 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=0b86bbaa pal=9fd8fc3f
+frame 1/2 3x1 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=0cae17ae pal=9fd8fc3f
+return 2
+### edpadcut.gif
+frame 0/-2 3x1 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=0b86bbaa pal=9fd8fc3f
+return -1
+### edpadnoterm.gif
+frame 0/-2 3x1 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=0b86bbaa pal=9fd8fc3f
+frame 1/-2 3x1 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=0cae17ae pal=9fd8fc3f
+return -2
 ### emptyext.gif
 frame 0/-1 2x2 +0+0 intr=0 clrs=0 tran=-1 mode=0 time=0 hash=7c5d13c6 pal=none
 return -1
 ### extradata.gif
-return 0
+frame 0/1 2x2 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=7c5d140b pal=9fd8fc3f
+return 1
 ### gif87a.gif
 frame 0/2 2x2 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=7c5d140b pal=9fd8fc3f
 frame 1/2 2x2 +0+0 intr=0 clrs=4 tran=-1 mode=0 time=0 hash=cd8fcf51 pal=9fd8fc3f
@@ -77,6 +89,9 @@ return 2
 ### straddle.gif
 frame 0/1 5x1 +0+0 intr=0 clrs=256 tran=-1 mode=0 time=0 hash=0811a96a pal=2840a385
 return 1
+### subcut.gif
+frame 0/-2 4x4 +0+0 intr=0 clrs=4 tran=2 mode=2 time=7 hash=b92b159d pal=9fd8fc3f
+return -1
 ### truncated.gif
 frame 0/-1 4x4 +0+0 intr=0 clrs=4 tran=2 mode=2 time=7 hash=b92b159d pal=9fd8fc3f
 return -1

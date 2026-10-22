@@ -105,9 +105,8 @@ static long _GIF_LoadFrame(
         return -2; /** initial code is not equal to min LZW size **/
     for (curr = ++ctbl; curr; code[--curr] = 0); /** actual color codes **/
 
-    /** getting codes from stream (--size makes up for end-of-stream mark) **/
-    for (--(*size), bszc = -ccsz, prev = curr = 0;
-        ((*size -= (bseq = *(*buff)++) + 1) >= 0) && bseq; *buff += bseq)
+    for (bszc = -ccsz, prev = curr = 0; /** getting codes from stream **/
+        ((*size -= (bseq = *(*buff)++) + 1) > 0) && bseq; *buff += bseq)
         for (; bseq > 0; bseq -= GIF_HLEN, *buff += GIF_HLEN)
             for (accu = (GIF_H)(_GIF_SWAP(*(GIF_H*)*buff)
                       & ((bseq < GIF_HLEN) ? ((1u << (8 * bseq)) - 1u) : ~0u)),
@@ -118,8 +117,8 @@ static long _GIF_LoadFrame(
                 if (((curr &= mask) & ~1L) == (1L << ctsz)) {
                     if (~(ctbl = curr + 1) & 1) { /** end-of-data code (ED). **/
                         for (; bptr < blen; *bptr++ = 0); /** pad if needed **/
-                        /** -1: no end-of-stream mark after ED; 1: decoded **/
-                        return (*((*buff += bseq + 1) - 1)) ? -1 : 1;
+                        *buff += bseq - 1; /** v-- return < 1 = no more data **/
+                        return *size = _GIF_SkipChunk(buff, *size + 1);
                     } /** v-- table drop code (TD). TD = 1<<ctsz, ED = TD+1 **/
                     mask = (GIF_H)((1 << (ccsz = ctsz + 1)) - 1);
                 } else { /** single-pixel (SP) or multi-pixel (MP) code. **/
@@ -144,7 +143,7 @@ static long _GIF_LoadFrame(
                     code[ctbl++] += ((uint32_t)iter << 24) + 0x1000;
                 } /** ^--- appending the code table **/
     for (; bptr < blen; *bptr++ = 0); /** N.B.: 'no ED found' is okay-ish **/
-    return (++(*size) >= 0) ? 0 : -4; /** <-- 0: no ED found; -4: see above **/
+    return (bseq) ? -4 : 0; /** <-- 0: no ED found; -4: see above **/
 }
 
 /** _________________________________________________________________________
